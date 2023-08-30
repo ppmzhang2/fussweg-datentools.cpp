@@ -1,0 +1,4 @@
+#pragma once
+#define VERSION_MAJOR @FusswegDatentools_VERSION_MAJOR@
+#define VERSION_MINOR @FusswegDatentools_VERSION_MINOR@
+#define VERSION_PATCH @FusswegDatentools_VERSION_PATCH@
