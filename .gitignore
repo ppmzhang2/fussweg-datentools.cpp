@@ -1,6 +1,7 @@
 # general things to ignore
 .DS_Store
 build/
+.cache/
 *.so
 *~
 
