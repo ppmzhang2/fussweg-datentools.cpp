@@ -8,7 +8,7 @@ if [ ! -d "$BUILD_DIR" ]; then
 fi
 
 # Build the project
-cmake --preset=unix-vcpkg
-cmake --build --preset=unix-vcpkg-debug
+cmake --preset=ux-vcpkg
+cmake --build --preset=ux-vcpkg-debug
 
 echo "Build complete!"
