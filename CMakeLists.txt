@@ -5,9 +5,19 @@ project(FusswegDatentools VERSION 1.0.0)
 find_package(exiv2 CONFIG REQUIRED)
 find_package(GTest CONFIG REQUIRED)
 
-add_executable(FusswegDatentools
+# define sources and headers
+set(SOURCES
     "${CMAKE_CURRENT_SOURCE_DIR}/src/main.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/exif.cpp"
+)
+set(HEADERS
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/exif.hpp"
+)
+
+# Create the executable
+add_executable(FusswegDatentools
+    ${SOURCES}
+    ${HEADERS}
 )
 
 # Set the runtime output directory to be inside the build directory
@@ -25,7 +35,7 @@ target_link_libraries(FusswegDatentools PRIVATE
     exiv2lib
 )
 
-target_include_directories(FusswegDatentools PUBLIC
+target_include_directories(FusswegDatentools PRIVATE
     "${CMAKE_CURRENT_SOURCE_DIR}/include"
     "${CMAKE_BINARY_DIR}/include" # Ensures config.h can be found
 )

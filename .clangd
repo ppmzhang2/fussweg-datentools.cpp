@@ -1,1 +1,12 @@
-CompilationDatabaseDirectory: build
+{
+    "CompilationDatabaseDirectory": "./build",
+    "CompileFlags": {
+        "Add": [
+            "-std=c++17",
+            "--include-directory=/path/to/any/additional/includes"
+        ],
+        "Remove": [
+            "-fno-exceptions"
+        ]
+    }
+}
