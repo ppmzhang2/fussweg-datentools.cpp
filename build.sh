@@ -8,7 +8,7 @@ if [ ! -d "$BUILD_DIR" ]; then
 fi
 
 # Build the project
-cmake -B "build/" -S . -DCMAKE_BUILD_TYPE=Debug
-cmake --build "build/" --config Debug # -v # for verbose output
+cmake --preset=unix-vcpkg
+cmake --build --preset=unix-vcpkg-debug
 
 echo "Build complete!"
