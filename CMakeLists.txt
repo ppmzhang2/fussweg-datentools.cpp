@@ -11,10 +11,12 @@ set(SOURCES
     "${CMAKE_CURRENT_SOURCE_DIR}/src/main.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/exif.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/exif_ser.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/file_iter.cpp"
 )
 set(HEADERS
     "${CMAKE_CURRENT_SOURCE_DIR}/include/exif.hpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/include/exif_ser.hpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/file_iter.hpp"
 )
 
 # Create the executable
