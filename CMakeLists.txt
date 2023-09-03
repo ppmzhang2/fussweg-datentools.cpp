@@ -4,14 +4,17 @@ project(FusswegDatentools VERSION 1.0.0)
 
 find_package(exiv2 CONFIG REQUIRED)
 find_package(GTest CONFIG REQUIRED)
+find_package(nlohmann_json CONFIG REQUIRED)
 
 # define sources and headers
 set(SOURCES
     "${CMAKE_CURRENT_SOURCE_DIR}/src/main.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/exif.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/exif_ser.cpp"
 )
 set(HEADERS
     "${CMAKE_CURRENT_SOURCE_DIR}/include/exif.hpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/exif_ser.hpp"
 )
 
 # Create the executable
@@ -32,6 +35,7 @@ configure_file(
 )
 
 target_link_libraries(FusswegDatentools PRIVATE
+    nlohmann_json::nlohmann_json
     exiv2lib
 )
 
@@ -51,6 +55,7 @@ target_include_directories(FDTTest PRIVATE
     "${CMAKE_BINARY_DIR}/include" # Ensures config.h can be found
 )
 target_link_libraries(FDTTest PRIVATE
+    nlohmann_json::nlohmann_json
     exiv2lib
     GTest::gtest
     GTest::gtest_main

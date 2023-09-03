@@ -5,15 +5,23 @@
 
 /*
  * Get string value from an ExifData::iterator for a given key:
- * - if the key is found, return the string value
+ *
  * - if the key is not found, return std::nullopt
+ * - if the key is found, return the string value with leading and trailing
+ *   whitespaces removed
  */
 inline OptStr get_attr_str(Exiv2::ExifData &dat, const std::string &key) {
     Exiv2::ExifData::iterator it = dat.findKey(Exiv2::ExifKey(key));
-    if (it != dat.end()) {
-        return it->value().toString();
+    if (it == dat.end()) {
+        return std::nullopt;
     }
-    return std::nullopt;
+    std::string str = it->value().toString();
+    size_t first = str.find_first_not_of(" \t\n\r\f\v");
+    if (first == std::string::npos) {
+        return std::nullopt;
+    }
+    size_t last = str.find_last_not_of(" \t\n\r\f\v");
+    return str.substr(first, (last - first + 1));
 }
 
 /*
