@@ -1,5 +1,6 @@
 #include "config.h"
 #include "exif.hpp"
+#include "exif_ser.hpp"
 #include <filesystem>
 #include <iomanip>
 #include <iostream>
@@ -11,15 +12,16 @@ int main() {
     // get Geo-Location of a picture
     const std::string kRelPth = "./data/DSCN0010.jpg";
     const std::string kAbsPth = std::filesystem::absolute(kRelPth);
+    // ListAllAttrs(kAbsPth);
     // Coord coor = GetCoord(kAbsPth);
     // std::cout << "Lat:" << std::fixed << std::setprecision(15) << coor.lat
     //           << std::endl;
     // std::cout << "Lon:" << std::fixed << std::setprecision(15) << coor.lon
     //           << std::endl;
 
-    ExifAttrs attributes = GetExifAttrs(kAbsPth);
-    // Print the attributes
-    PrintAttrs(attributes);
-    // ListAllAttrs(kAbsPth);
+    ExifAttrs attrs = GetExifAttrs(kAbsPth);
+    // PrintAttrs(attrs);
+    std::string j = ExifSerializer::Serialize(attrs);
+    std::cout << j << std::endl;
     std::cin.get();
 }
