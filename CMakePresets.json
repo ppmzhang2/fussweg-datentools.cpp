@@ -1,0 +1,76 @@
+{
+    "version": 3,
+    "cmakeMinimumRequired": {
+        "major": 3,
+        "minor": 27,
+        "patch": 0
+    },
+    "configurePresets": [
+        {
+            "name": "ux-vcpkg",
+            "displayName": "Unix Makefiles (vcpkg)",
+            "description": "Local development using Unix Makefiles and vcpkg",
+            "hidden": false,
+            "binaryDir": "${sourceDir}/build", // clangd LSP requires no presetName
+            "generator": "Unix Makefiles",
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Debug",
+                "CMAKE_EXPORT_COMPILE_COMMANDS": true,
+                "CMAKE_CXX_STANDARD": "17",
+                "CMAKE_CXX_STANDARD_REQUIRED": true,
+                "CMAKE_TOOLCHAIN_FILE": {
+                    "type": "FILEPATH",
+                    "value": "${sourceDir}/vcpkg/scripts/buildsystems/vcpkg.cmake"
+                }
+            }
+        },
+        {
+            "name": "ninja-vcpkg",
+            "displayName": "Ninja (vcpkg)",
+            "description": "Configure using Ninja and vcpkg",
+            "hidden": false,
+            "binaryDir": "${sourceDir}/build/${presetName}",
+            "generator": "Ninja",
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Debug",
+                "CMAKE_EXPORT_COMPILE_COMMANDS": true,
+                "CMAKE_CXX_STANDARD": "17",
+                "CMAKE_CXX_STANDARD_REQUIRED": true,
+                "CMAKE_TOOLCHAIN_FILE": {
+                    "type": "FILEPATH",
+                    "value": "${sourceDir}/vcpkg/scripts/buildsystems/vcpkg.cmake"
+                }
+            }
+        }
+    ],
+    "buildPresets": [
+        {
+            "name": "ux-vcpkg-debug",
+            "displayName": "Unix Makefiles (vcpkg) Debug",
+            "description": "Debug build using Unix Makefiles and vcpkg",
+            "configurePreset": "ux-vcpkg",
+            "configuration": "Debug"
+        },
+        {
+            "name": "ux-vcpkg-release",
+            "displayName": "Unix Makefiles (vcpkg) Release",
+            "description": "Release build using Unix Makefiles and vcpkg",
+            "configurePreset": "ux-vcpkg",
+            "configuration": "Release"
+        },
+        {
+            "name": "ninja-vcpkg-debug",
+            "displayName": "Ninja (vcpkg) Debug",
+            "description": "Debug build using Ninja and vcpkg",
+            "configurePreset": "ninja-vcpkg",
+            "configuration": "Debug"
+        },
+        {
+            "name": "ninja-vcpkg-release",
+            "displayName": "Ninja (vcpkg) Release",
+            "description": "Release build using Ninja and vcpkg",
+            "configurePreset": "ninja-vcpkg",
+            "configuration": "Release"
+        }
+    ]
+}
