@@ -3,9 +3,9 @@
 #include <filesystem>
 #include <vector>
 
-class JPEGFilesIterator {
+class FileIter {
   public:
-    JPEGFilesIterator(const std::string &directory);
+    FileIter(const std::string &directory);
 
     std::vector<std::string>::iterator begin();
     std::vector<std::string>::iterator end();

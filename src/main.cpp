@@ -1,6 +1,6 @@
 #include "config.h"
 #include "exif.hpp"
-#include "exif_ser.hpp"
+#include "exif_serde.hpp"
 #include "file_iter.hpp"
 #include <filesystem>
 #include <fstream>
@@ -13,8 +13,8 @@ void writeToFile(const std::string &out_file, const std::string &content) {
         throw std::runtime_error("Unable to open for writing: " + out_file);
     }
 
-    for (const auto &path : JPEGFilesIterator(content)) {
-        std::string j = ExifSerializer::Serialize(GetExifAttrs(path));
+    for (const auto &path : FileIter(content)) {
+        std::string j = ExifSerde::Serialize(Exif::GetAttrs(path));
         outFile << j << std::endl;
     }
     outFile.close();
