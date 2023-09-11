@@ -4,6 +4,7 @@
     "dependencies": [
         "exiv2",
         "nlohmann-json",
+        "opencv",
         "gtest"
     ]
 }

@@ -5,6 +5,7 @@ project(FusswegDatentools VERSION 1.0.0)
 find_package(exiv2 CONFIG REQUIRED)
 find_package(GTest CONFIG REQUIRED)
 find_package(nlohmann_json CONFIG REQUIRED)
+find_package(OpenCV CONFIG REQUIRED)
 
 # define sources and headers
 set(SOURCES
@@ -12,11 +13,13 @@ set(SOURCES
     "${CMAKE_CURRENT_SOURCE_DIR}/src/exif.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/exif_serde.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/file_iter.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/optical_flow.cpp"
 )
 set(HEADERS
     "${CMAKE_CURRENT_SOURCE_DIR}/include/exif.hpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/include/exif_serde.hpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/include/file_iter.hpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/optical_flow.hpp"
 )
 
 # Create the executable
@@ -37,6 +40,7 @@ configure_file(
 )
 
 target_link_libraries(FusswegDatentools PRIVATE
+    ${OpenCV_LIBS}
     nlohmann_json::nlohmann_json
     exiv2lib
 )
