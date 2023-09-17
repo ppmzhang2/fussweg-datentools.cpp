@@ -37,7 +37,7 @@ namespace Exif {
     } // namespace Exiv2Keys
 
     // This structure holds the desired EXIF attributes.
-    using Attrs = struct {
+    struct Attrs {
         OptStr exif_ver;
         // fields of image
         OptStr desc;

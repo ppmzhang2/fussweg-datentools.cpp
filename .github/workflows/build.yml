@@ -1,0 +1,57 @@
+name: Build and Release
+on:
+  push:
+    branches:
+      - master
+  workflow_dispatch:
+
+# When two jobs run in parallel, cancel the older ones, to make sure that the
+# website is generated from the most recent commit.
+concurrency:
+  group: ${{ github.head_ref || github.run_id }}
+  cancel-in-progress: true
+
+jobs:
+  build_and_release:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v2
+
+    - name: Install vcpkg
+      run: |
+        git submodule update --init --recursive
+        ./vcpkg/bootstrap-vcpkg.sh
+
+    - name: Install CMake
+      run: |
+        sudo apt-get install -y cmake
+        sudo apt-get install -y libdbus-1-dev libxi-dev libxtst-dev # at-spi2-core
+        sudo apt-get install -y libgtk-3-dev # gtk3
+
+    - name: Run build script
+      run: |
+        cmake --preset=ux-vcpkg
+        cmake --build --preset=ux-vcpkg-debug
+
+    - name: Create Release
+      id: create_release
+      uses: actions/create-release@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.PERSONAL_TOKEN }}
+      with:
+        tag_name: ${{ github.ref }}
+        release_name: Release ${{ github.ref }}
+        draft: false
+        prerelease: false
+
+    - name: Upload Release Asset
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.PERSONAL_TOKEN }}
+      with:
+        upload_url: ${{ steps.create_release.outputs.upload_url }}
+        asset_path: ./build/bin/FusswegDatentools
+        asset_name: project_executable
+        asset_content_type: application/octet-stream
