@@ -11,17 +11,18 @@
             "displayName": "Unix Makefiles (vcpkg)",
             "description": "Local development using Unix Makefiles and vcpkg",
             "hidden": false,
-            "binaryDir": "${sourceDir}/build", // clangd LSP requires no presetName
+            "binaryDir": "${sourceDir}/build",
             "generator": "Unix Makefiles",
             "cacheVariables": {
-                "CMAKE_BUILD_TYPE": "Debug",
+                "CMAKE_BUILD_TYPE": "Release",
                 "CMAKE_EXPORT_COMPILE_COMMANDS": true,
                 "CMAKE_CXX_STANDARD": "17",
                 "CMAKE_CXX_STANDARD_REQUIRED": true,
                 "CMAKE_TOOLCHAIN_FILE": {
                     "type": "FILEPATH",
                     "value": "${sourceDir}/vcpkg/scripts/buildsystems/vcpkg.cmake"
-                }
+                },
+                "CMAKE_BUILD_WITH_INSTALL_RPATH": true
             }
         },
         {
@@ -32,14 +33,15 @@
             "binaryDir": "${sourceDir}/build/${presetName}",
             "generator": "Ninja",
             "cacheVariables": {
-                "CMAKE_BUILD_TYPE": "Debug",
+                "CMAKE_BUILD_TYPE": "Release",
                 "CMAKE_EXPORT_COMPILE_COMMANDS": true,
                 "CMAKE_CXX_STANDARD": "17",
                 "CMAKE_CXX_STANDARD_REQUIRED": true,
                 "CMAKE_TOOLCHAIN_FILE": {
                     "type": "FILEPATH",
                     "value": "${sourceDir}/vcpkg/scripts/buildsystems/vcpkg.cmake"
-                }
+                },
+                "CMAKE_BUILD_WITH_INSTALL_RPATH": true
             }
         }
     ],

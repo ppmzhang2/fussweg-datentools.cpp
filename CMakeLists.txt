@@ -7,18 +7,23 @@ find_package(GTest CONFIG REQUIRED)
 find_package(nlohmann_json CONFIG REQUIRED)
 find_package(OpenCV CONFIG REQUIRED)
 
+# # set linker flags to statically link libstdc++
+# set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -static-libstdc++")
+# # set linker flags to statically link libc
+# set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -static-libgcc")
+
 # define sources and headers
 set(SOURCES
     "${CMAKE_CURRENT_SOURCE_DIR}/src/main.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/exif.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/exif_json.cpp"
-    "${CMAKE_CURRENT_SOURCE_DIR}/src/file_iter.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/path_finder.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/optical_flow.cpp"
 )
 set(HEADERS
     "${CMAKE_CURRENT_SOURCE_DIR}/include/exif.hpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/include/exif_json.hpp"
-    "${CMAKE_CURRENT_SOURCE_DIR}/include/file_iter.hpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/path_finder.hpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/include/optical_flow.hpp"
 )
 

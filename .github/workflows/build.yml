@@ -11,18 +11,18 @@ concurrency:
 
 jobs:
   build_and_release:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-20.04
 
     steps:
     - name: Checkout code
       uses: actions/checkout@v2
 
-    - name: Install vcpkg
+    - name: Setup vcpkg
       run: |
         git submodule update --init --recursive
         ./vcpkg/bootstrap-vcpkg.sh
 
-    - name: Install CMake
+    - name: Install dependencies
       run: |
         sudo apt-get install -y cmake
         sudo apt-get install -y libdbus-1-dev libxi-dev libxtst-dev # at-spi2-core
@@ -30,8 +30,10 @@ jobs:
 
     - name: Run build script
       run: |
-        cmake --preset=ux-vcpkg
-        cmake --build --preset=ux-vcpkg-debug
+        cmake --preset ux-vcpkg \
+            -DCMAKE_EXE_LINKER_FLAGS="-static-libgcc -static-libstdc++" \
+            -DVCPKG_TARGET_TRIPLET=x64-linux # static linking
+        cmake --build --preset=ux-vcpkg-release
 
     # Extract the branch or tag name from github.ref
     - name: Extract branch or tag name
