@@ -1,5 +1,5 @@
 #include "exif_json.hpp"
-#include "file_iter.hpp"
+#include "path_finder.hpp"
 #include <nlohmann/json.hpp>
 
 // Define a set of functions to assign values to JSON objects
@@ -62,7 +62,7 @@ namespace ExifJson {
     nlohmann::json FromFiles(const std::string &content) {
         nlohmann::json out;
 
-        for (const auto &path : FileIter(content)) {
+        for (const auto &path : PathFinder::AllFiles(content)) {
             const nlohmann::json j = ExifJson::FromAttr(Exif::GetAttrs(path));
             out.push_back(j);
         }

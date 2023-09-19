@@ -9,6 +9,6 @@ fi
 
 # Build the project
 cmake --preset=ux-vcpkg
-cmake --build --preset=ux-vcpkg-debug
+cmake --build --preset=ux-vcpkg-release
 
 echo "Build complete!"

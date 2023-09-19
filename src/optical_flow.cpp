@@ -1,11 +1,11 @@
+#include "optical_flow.hpp"
+#include "path_finder.hpp"
 #include <algorithm>
 #include <future>
 #include <nlohmann/json.hpp>
 #include <opencv2/opencv.hpp>
 #include <string>
 #include <vector>
-
-typedef std::vector<std::string> Paths;
 
 // Computes the optical flow between two images and returns the mean absolute
 // value of the flow.
@@ -28,56 +28,54 @@ inline double reduce_mean_abs(const std::string &imgAPath,
     return cv::mean(absFlow)[0];
 }
 
-namespace OpticalFlow {
+// Computes the optical flow between a chunk of images.
+// @param file_chunk A chunk of images.
+// @return A json object containing the displacement between each image in the
+// chunk.
+nlohmann::json process_chunk(const Paths &file_chunk) {
+    nlohmann::json output;
 
-    nlohmann::json process_chunk(const Paths &img_files_chunk) {
-        nlohmann::json output;
+    for (size_t i = 0; i < file_chunk.size() - 1; ++i) {
+        nlohmann::json j;
+        const double dis = reduce_mean_abs(file_chunk[i], file_chunk[i + 1]);
 
-        for (size_t i = 0; i < img_files_chunk.size() - 1; ++i) {
-            nlohmann::json j;
-            const double dis =
-                reduce_mean_abs(img_files_chunk[i], img_files_chunk[i + 1]);
+        j["displacement"] = dis;
+        j["file_a"] = file_chunk[i];
+        j["file_b"] = file_chunk[i + 1];
 
-            j["displacement"] = dis;
-            j["file_a"] = img_files_chunk[i];
-            j["file_b"] = img_files_chunk[i + 1];
+        output.push_back(j);
+    }
+    return output;
+}
 
-            output.push_back(j);
-        }
-        return output;
+nlohmann::json OpticalFlow::Displacement(const std::string &dir) {
+    nlohmann::json out;
+    Paths imgs = PathFinder::AllFiles(dir);
+
+    // Sort images by name
+    std::sort(imgs.begin(), imgs.end());
+
+    // Number of processes to be used
+    size_t n_proc =
+        std::min(imgs.size() / 2, (size_t)std::thread::hardware_concurrency());
+    size_t csize = imgs.size() / n_proc; // chunk size
+
+    std::vector<std::future<nlohmann::json>> futures;
+
+    for (size_t i = 0; i < n_proc; ++i) {
+        Paths chunk(i == 0 ? imgs.begin() : imgs.begin() + i * csize - 1,
+                    i == n_proc - 1 ? imgs.end()
+                                    : imgs.begin() + (i + 1) * csize);
+
+        futures.push_back(std::async(std::launch::async, process_chunk, chunk));
     }
 
-    nlohmann::json Displacement(const std::string &folder_path) {
-        nlohmann::json final_output;
-        Paths imgs;
-
-        cv::glob(folder_path + "/*.JPG", imgs);
-        std::sort(imgs.begin(), imgs.end());
-
-        // Number of processes to be used
-        size_t n_process = std::min(
-            imgs.size() / 2, (size_t)std::thread::hardware_concurrency());
-        size_t chunk_size = imgs.size() / n_process;
-
-        std::vector<std::future<nlohmann::json>> futures;
-
-        for (size_t i = 0; i < n_process; ++i) {
-            Paths chunk(
-                i == 0 ? imgs.begin() : imgs.begin() + i * chunk_size - 1,
-                i == n_process - 1 ? imgs.end()
-                                   : imgs.begin() + (i + 1) * chunk_size);
-
-            futures.push_back(
-                std::async(std::launch::async, process_chunk, chunk));
+    for (auto &fut : futures) {
+        nlohmann::json chunk_output = fut.get();
+        for (const auto &item : chunk_output) {
+            out.push_back(item);
         }
-
-        for (auto &fut : futures) {
-            nlohmann::json chunk_output = fut.get();
-            for (const auto &item : chunk_output) {
-                final_output.push_back(item);
-            }
-        }
-
-        return final_output;
     }
-} // namespace OpticalFlow
+
+    return out;
+}
