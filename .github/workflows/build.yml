@@ -1,4 +1,5 @@
 name: Build and Release
+
 on:
   push:
     branches:
@@ -24,6 +25,8 @@ jobs:
 
     - name: Install dependencies
       run: |
+        sudo apt update -y
+        sudo apt upgrade -y
         sudo apt-get install -y cmake
         sudo apt-get install -y libdbus-1-dev libxi-dev libxtst-dev # at-spi2-core
         sudo apt-get install -y libgtk-3-dev # gtk3
@@ -35,12 +38,31 @@ jobs:
             -DVCPKG_TARGET_TRIPLET=x64-linux # static linking
         cmake --build --preset=ux-vcpkg-release
 
-    # Extract the branch or tag name from github.ref
     - name: Extract branch or tag name
       id: extract_ref
-      run: echo "::set-output name=branch_or_tag::$(echo ${{ github.ref }} | sed 's|.*/||')"
+      run: |
+        REF_NAME=$(echo ${{ github.ref }} | sed 's|.*/||') # Remove refs/heads/ or refs/tags/ prefix
+        if [ "$REF_NAME" == "master" ]; then
+          # If it's a push to the master branch, generate a unique tag name based on the date
+          REF_NAME="release-$(date +'%Y%m%d')"
+        fi
+        echo "branch_or_tag=$REF_NAME" >> $GITHUB_OUTPUT
 
-    # Create the release using the extracted value
+    - name: Authenticate with GitHub CLI
+      run: |
+        echo ${{ secrets.PERSONAL_TOKEN }} | gh auth login --with-token
+
+    - name: Check for existing release
+      id: check_release
+      run: |
+        RELEASE_URL=$(gh release view ${{ steps.extract_ref.outputs.branch_or_tag }} --json url -q ".url" || echo "")
+        echo "release_url=$RELEASE_URL" >> $GITHUB_OUTPUT
+
+    - name: Delete existing release if it exists
+      if: steps.check_release.outputs.release_url != ''
+      run: |
+        gh release delete ${{ steps.extract_ref.outputs.branch_or_tag }} --yes
+
     - name: Create Release
       id: create_release
       uses: actions/create-release@v1
@@ -59,5 +81,5 @@ jobs:
       with:
         upload_url: ${{ steps.create_release.outputs.upload_url }}
         asset_path: ./build/bin/FusswegDatentools
-        asset_name: project_executable
+        asset_name: fusswegdatentools
         asset_content_type: application/octet-stream
