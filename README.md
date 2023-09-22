@@ -27,10 +27,10 @@ To ensure a smooth development process, follow these steps:
 
 2. **Bootstrap `vcpkg`**:
 
-   Navigate to the `vcpkg` directory and run the following command:
+   Run the following command from the project's root directory:
 
    ```bash
-   ./bootstrap-vcpkg.sh
+   ./vcpkg/bootstrap-vcpkg.sh
    ```
 
    This will build the `vcpkg` executable and place it in the `vcpkg` directory.

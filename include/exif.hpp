@@ -38,6 +38,7 @@ namespace Exif {
 
     // This structure holds the desired EXIF attributes.
     struct Attrs {
+        std::string path;
         OptStr exif_ver;
         // fields of image
         OptStr desc;
@@ -62,6 +63,7 @@ namespace Exif {
 
     // Initializes the ExifAttributes structure with default values.
     static const Attrs DEFAULT_ATTRS = {
+        .path = "",
         .exif_ver = std::nullopt,
         .desc = std::nullopt,
         .model = std::nullopt,
