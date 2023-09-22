@@ -34,40 +34,37 @@ inline void assign_to_json(nlohmann::json &j, const std::string &key,
     }
 }
 
-namespace ExifJson {
+nlohmann::json ExifJson::FromAttr(const Exif::Attrs &attrs) {
+    nlohmann::json out;
 
-    nlohmann::json FromAttr(const Exif::Attrs &attrs) {
-        nlohmann::json out;
+    // Define a list of serialization actions
+    std::vector<std::function<void()>> serActions = {
+        [&]() { assign_to_json(out, "path", attrs.path); },
+        [&]() { assign_to_json(out, "exif_ver", attrs.exif_ver); },
+        [&]() { assign_to_json(out, "desc", attrs.desc); },
+        [&]() { assign_to_json(out, "model", attrs.model); },
+        [&]() { assign_to_json(out, "height", attrs.height); },
+        [&]() { assign_to_json(out, "width", attrs.width); },
+        [&]() { assign_to_json(out, "lat", attrs.lat); },
+        [&]() { assign_to_json(out, "lon", attrs.lon); },
+        [&]() { assign_to_json(out, "altitude", attrs.altitude); },
+        [&]() { assign_to_json(out, "ts_gps", attrs.ts_gps); },
+    };
 
-        // Define a list of serialization actions
-        std::vector<std::function<void()>> serActions = {
-            [&]() { assign_to_json(out, "exif_ver", attrs.exif_ver); },
-            [&]() { assign_to_json(out, "desc", attrs.desc); },
-            [&]() { assign_to_json(out, "model", attrs.model); },
-            [&]() { assign_to_json(out, "height", attrs.height); },
-            [&]() { assign_to_json(out, "width", attrs.width); },
-            [&]() { assign_to_json(out, "lat", attrs.lat); },
-            [&]() { assign_to_json(out, "lon", attrs.lon); },
-            [&]() { assign_to_json(out, "altitude", attrs.altitude); },
-            [&]() { assign_to_json(out, "ts_gps", attrs.ts_gps); },
-        };
-
-        for (const auto &action : serActions) {
-            action(); // Execute the serialization action
-        }
-
-        return out;
+    for (const auto &action : serActions) {
+        action(); // Execute the serialization action
     }
 
-    nlohmann::json FromFiles(const std::string &content) {
-        nlohmann::json out;
+    return out;
+}
 
-        for (const auto &path : PathFinder::AllFiles(content)) {
-            const nlohmann::json j = ExifJson::FromAttr(Exif::GetAttrs(path));
-            out.push_back(j);
-        }
+nlohmann::json ExifJson::FromFiles(const std::string &content) {
+    nlohmann::json out;
 
-        return out;
+    for (const auto &path : PathFinder::AllFiles(content)) {
+        const nlohmann::json j = ExifJson::FromAttr(Exif::GetAttrs(path));
+        out.push_back(j);
     }
 
-} // namespace ExifJson
+    return out;
+}

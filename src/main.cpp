@@ -25,7 +25,7 @@ int parse_args(int argc, char *argv[]) {
         std::cout << "Usage: " << std::endl;
         std::cout << "  " << argv[0] << " exif <directory_path> "
                   << "<output_file_path>" << std::endl;
-        std::cout << "  " << argv[0] << " displacement <directory_path>"
+        std::cout << "  " << argv[0] << " displacement <directory_path> "
                   << "<output_file_path>" << std::endl;
         return 1;
     }

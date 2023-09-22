@@ -183,71 +183,67 @@ inline Exiv2::ExifData get_exif(const std::string &path) {
     return dat;
 }
 
-namespace Exif {
-    Exif::Attrs GetAttrs(const std::string &path) {
-        Exif::Attrs attrs = Exif::DEFAULT_ATTRS;
+Exif::Attrs Exif::GetAttrs(const std::string &path) {
+    Exif::Attrs attrs = Exif::DEFAULT_ATTRS;
+    attrs.path = path;
 
-        Exiv2::ExifData dat = get_exif(path);
+    Exiv2::ExifData dat = get_exif(path);
 
-        attrs.exif_ver = get_attr_str(dat, Exif::Exiv2Keys::EXIF_VER);
-        attrs.model = get_model(get_attr_str(dat, Exif::Exiv2Keys::MAKE),
-                                get_attr_str(dat, Exif::Exiv2Keys::MODEL));
-        attrs.desc = get_attr_str(dat, Exif::Exiv2Keys::DESC);
-        attrs.height = to_int(get_attr_str(dat, Exif::Exiv2Keys::HEIGHT));
-        attrs.width = to_int(get_attr_str(dat, Exif::Exiv2Keys::WIDTH));
-        attrs.lat = get_coor(get_attr_str(dat, Exif::Exiv2Keys::LAT),
-                             get_attr_str(dat, Exif::Exiv2Keys::LAT_REF));
-        attrs.lon = get_coor(get_attr_str(dat, Exif::Exiv2Keys::LON),
-                             get_attr_str(dat, Exif::Exiv2Keys::LON_REF));
+    attrs.exif_ver = get_attr_str(dat, Exif::Exiv2Keys::EXIF_VER);
+    attrs.model = get_model(get_attr_str(dat, Exif::Exiv2Keys::MAKE),
+                            get_attr_str(dat, Exif::Exiv2Keys::MODEL));
+    attrs.desc = get_attr_str(dat, Exif::Exiv2Keys::DESC);
+    attrs.height = to_int(get_attr_str(dat, Exif::Exiv2Keys::HEIGHT));
+    attrs.width = to_int(get_attr_str(dat, Exif::Exiv2Keys::WIDTH));
+    attrs.lat = get_coor(get_attr_str(dat, Exif::Exiv2Keys::LAT),
+                         get_attr_str(dat, Exif::Exiv2Keys::LAT_REF));
+    attrs.lon = get_coor(get_attr_str(dat, Exif::Exiv2Keys::LON),
+                         get_attr_str(dat, Exif::Exiv2Keys::LON_REF));
 
-        attrs.altitude = frac(get_attr_str(dat, Exif::Exiv2Keys::ALTITUDE));
-        attrs.ts_gps = get_gps_ts(get_attr_str(dat, Exif::Exiv2Keys::GPS_DATE),
-                                  get_attr_str(dat, Exif::Exiv2Keys::GPS_TIME));
-        attrs.coc = get_coc_from_model(attrs.model);
-        attrs.exposure_time =
-            frac(get_attr_str(dat, Exif::Exiv2Keys::EXPOSURE_TIME));
-        attrs.iso = to_int(get_attr_str(dat, Exif::Exiv2Keys::ISO));
-        attrs.shutter_speed =
-            frac(get_attr_str(dat, Exif::Exiv2Keys::SHUTTER_SPEED));
-        attrs.aperture = frac(get_attr_str(dat, Exif::Exiv2Keys::APERTURE));
-        attrs.subj_dist = frac(get_attr_str(dat, Exif::Exiv2Keys::SUBJ_DIST));
-        attrs.focal_length =
-            frac(get_attr_str(dat, Exif::Exiv2Keys::FOCAL_LENGTH));
-        attrs.hyperfocal_dist =
-            get_hyperfocal_dist(attrs.focal_length, attrs.aperture, attrs.coc);
+    attrs.altitude = frac(get_attr_str(dat, Exif::Exiv2Keys::ALTITUDE));
+    attrs.ts_gps = get_gps_ts(get_attr_str(dat, Exif::Exiv2Keys::GPS_DATE),
+                              get_attr_str(dat, Exif::Exiv2Keys::GPS_TIME));
+    attrs.coc = get_coc_from_model(attrs.model);
+    attrs.exposure_time =
+        frac(get_attr_str(dat, Exif::Exiv2Keys::EXPOSURE_TIME));
+    attrs.iso = to_int(get_attr_str(dat, Exif::Exiv2Keys::ISO));
+    attrs.shutter_speed =
+        frac(get_attr_str(dat, Exif::Exiv2Keys::SHUTTER_SPEED));
+    attrs.aperture = frac(get_attr_str(dat, Exif::Exiv2Keys::APERTURE));
+    attrs.subj_dist = frac(get_attr_str(dat, Exif::Exiv2Keys::SUBJ_DIST));
+    attrs.focal_length = frac(get_attr_str(dat, Exif::Exiv2Keys::FOCAL_LENGTH));
+    attrs.hyperfocal_dist =
+        get_hyperfocal_dist(attrs.focal_length, attrs.aperture, attrs.coc);
 
-        return attrs;
+    return attrs;
+}
+
+void Exif::ListAllAttrs(const std::string &path) {
+    Exiv2::ExifData dat = get_exif(path);
+
+    Exiv2::ExifData::const_iterator it = dat.begin();
+    for (; it != dat.end(); ++it) {
+        std::cout << it->key() << ": " << it->value().toString() << std::endl;
     }
+}
 
-    void ListAllAttrs(const std::string &path) {
-        Exiv2::ExifData dat = get_exif(path);
-
-        Exiv2::ExifData::const_iterator it = dat.begin();
-        for (; it != dat.end(); ++it) {
-            std::cout << it->key() << ": " << it->value().toString()
-                      << std::endl;
-        }
-    }
-
-    void PrintAttrs(const Exif::Attrs &attrs) {
-        std::cout << "Exif version: " << *attrs.exif_ver << std::endl;
-        std::cout << "Model: " << *attrs.model << std::endl;
-        std::cout << "Description: " << *attrs.desc << std::endl;
-        std::cout << "Height: " << *attrs.height << std::endl;
-        std::cout << "Width: " << *attrs.width << std::endl;
-        std::cout << "Latitude: " << *attrs.lat << std::endl;
-        std::cout << "Longitude: " << *attrs.lon << std::endl;
-        std::cout << "Altitude: " << *attrs.altitude << std::endl;
-        std::cout << "GPS timestamp: " << std::put_time(&*attrs.ts_gps, "%c %Z")
-                  << std::endl;
-        std::cout << "Circle of confusion: " << *attrs.coc << std::endl;
-        std::cout << "Exposure time: " << *attrs.exposure_time << std::endl;
-        std::cout << "ISO: " << *attrs.iso << std::endl;
-        std::cout << "Shutter speed: " << *attrs.shutter_speed << std::endl;
-        std::cout << "Aperture: " << *attrs.aperture << std::endl;
-        std::cout << "Subject distance: " << *attrs.subj_dist << std::endl;
-        std::cout << "Focal length: " << *attrs.focal_length << std::endl;
-        std::cout << "Hyperfocal distance: " << *attrs.hyperfocal_dist
-                  << std::endl;
-    }
-} // namespace Exif
+void Exif::PrintAttrs(const Exif::Attrs &attrs) {
+    std::cout << "Exif version: " << *attrs.exif_ver << std::endl;
+    std::cout << "Model: " << *attrs.model << std::endl;
+    std::cout << "Description: " << *attrs.desc << std::endl;
+    std::cout << "Height: " << *attrs.height << std::endl;
+    std::cout << "Width: " << *attrs.width << std::endl;
+    std::cout << "Latitude: " << *attrs.lat << std::endl;
+    std::cout << "Longitude: " << *attrs.lon << std::endl;
+    std::cout << "Altitude: " << *attrs.altitude << std::endl;
+    std::cout << "GPS timestamp: " << std::put_time(&*attrs.ts_gps, "%c %Z")
+              << std::endl;
+    std::cout << "Circle of confusion: " << *attrs.coc << std::endl;
+    std::cout << "Exposure time: " << *attrs.exposure_time << std::endl;
+    std::cout << "ISO: " << *attrs.iso << std::endl;
+    std::cout << "Shutter speed: " << *attrs.shutter_speed << std::endl;
+    std::cout << "Aperture: " << *attrs.aperture << std::endl;
+    std::cout << "Subject distance: " << *attrs.subj_dist << std::endl;
+    std::cout << "Focal length: " << *attrs.focal_length << std::endl;
+    std::cout << "Hyperfocal distance: " << *attrs.hyperfocal_dist << std::endl;
+}
