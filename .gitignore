@@ -11,6 +11,7 @@ CMakeCache.txt
 cmake_install.cmake
 Makefile
 include/config.h
+*.out
 
 # IDE
 .vscode/
