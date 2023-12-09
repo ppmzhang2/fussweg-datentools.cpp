@@ -6,5 +6,9 @@
 typedef std::vector<std::string> Paths;
 
 namespace PathFinder {
-    Paths AllFiles(const std::string &);
+
+    Paths AllImages(const std::string &);
+
+    Paths AllCsvs(const std::string &);
+
 } // namespace PathFinder

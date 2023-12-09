@@ -1,6 +1,6 @@
 #include "path_finder.hpp"
 
-Paths PathFinder::AllFiles(const std::string &dir) {
+Paths PathFinder::AllImages(const std::string &dir) {
     Paths imgs;
     for (const auto &f : std::filesystem::recursive_directory_iterator(dir)) {
         if (f.path().extension() == ".JPG" || f.path().extension() == ".jpg") {
@@ -8,4 +8,14 @@ Paths PathFinder::AllFiles(const std::string &dir) {
         }
     }
     return imgs;
+}
+
+Paths PathFinder::AllCsvs(const std::string &dir) {
+    Paths files;
+    for (const auto &f : std::filesystem::recursive_directory_iterator(dir)) {
+        if (f.path().extension() == ".csv" || f.path().extension() == ".CSV") {
+            files.push_back(f.path().string());
+        }
+    }
+    return files;
 }

@@ -57,7 +57,7 @@ void PoV::transform(const Quad &roi, const double &dst_width,
     cv::Mat mat_homo = cv::getPerspectiveTransform(roi.vector(), dst.vector());
 
     // Iterate over images in the source folder
-    Paths imgs = PathFinder::AllFiles(src_dir);
+    Paths imgs = PathFinder::AllImages(src_dir);
 
     // Number of processes to be used
     size_t n_proc =

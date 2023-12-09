@@ -20,6 +20,7 @@ set(SOURCES
     "${CMAKE_CURRENT_SOURCE_DIR}/src/path_finder.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/optical_flow.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/pov.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/annot.cpp"
 )
 set(HEADERS
     "${CMAKE_CURRENT_SOURCE_DIR}/include/exif.hpp"
@@ -27,6 +28,7 @@ set(HEADERS
     "${CMAKE_CURRENT_SOURCE_DIR}/include/path_finder.hpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/include/optical_flow.hpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/include/pov.hpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/annot.hpp"
 )
 
 # Create the executable

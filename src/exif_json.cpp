@@ -61,7 +61,7 @@ nlohmann::json ExifJson::FromAttr(const Exif::Attrs &attrs) {
 nlohmann::json ExifJson::FromFiles(const std::string &content) {
     nlohmann::json out;
 
-    for (const auto &path : PathFinder::AllFiles(content)) {
+    for (const auto &path : PathFinder::AllImages(content)) {
         const nlohmann::json j = ExifJson::FromAttr(Exif::GetAttrs(path));
         out.push_back(j);
     }

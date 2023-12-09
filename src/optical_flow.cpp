@@ -50,7 +50,7 @@ nlohmann::json process_chunk(const Paths &file_chunk) {
 
 nlohmann::json OpticalFlow::Displacement(const std::string &dir) {
     nlohmann::json out;
-    Paths imgs = PathFinder::AllFiles(dir);
+    Paths imgs = PathFinder::AllImages(dir);
 
     // Sort images by name
     std::sort(imgs.begin(), imgs.end());
