@@ -1,12 +1,14 @@
-#include "config.h"
-#include "exif_json.hpp"
-#include "optical_flow.hpp"
-#include "pov.hpp"
 #include <filesystem>
 #include <fstream>
 #include <iomanip>
 #include <iostream>
 #include <nlohmann/json.hpp>
+
+#include "annot.hpp"
+#include "config.h"
+#include "exif_json.hpp"
+#include "optical_flow.hpp"
+#include "pov.hpp"
 
 void writeToFile(const std::string &out_file, const std::string &content) {
     std::ofstream outFile(out_file);
@@ -42,8 +44,8 @@ int parse_args(int argc, char *argv[]) {
     }
 
     std::string op = argv[1];
-    if (op != "exif" && op != "displacement" && op != "pov-roi" &&
-        op != "pov-transform") {
+    if (op != "exif" && op != "displacement" && op != "bbox-csv" &&
+        op != "pov-roi" && op != "pov-transform") {
         throw std::runtime_error("Unknown operation. "
                                  "Use 'exif', 'displacement', "
                                  "'pov-roi' or 'pov-transform'.");
@@ -52,6 +54,9 @@ int parse_args(int argc, char *argv[]) {
         throw std::runtime_error("Invalid number of arguments.");
     }
     if (op == "displacement" && argc != 4) {
+        throw std::runtime_error("Invalid number of arguments.");
+    }
+    if (op == "bbox-csv" && argc != 5) {
         throw std::runtime_error("Invalid number of arguments.");
     }
     if (op == "pov-roi" && argc != 20) {
@@ -72,6 +77,13 @@ int parse_args(int argc, char *argv[]) {
         std::string out_path = argv[3];
         auto out = OpticalFlow::Displacement(dir_path);
         writeToFile(out_path, out.dump(4));
+        return 0;
+    }
+    if (op == "bbox-csv") {
+        std::string dir_csv = argv[2];
+        std::string dir_src = argv[3];
+        std::string dir_dst = argv[4];
+        Annot::VisBBox(dir_csv, dir_src, dir_dst);
         return 0;
     }
     if (op == "pov-roi") {
