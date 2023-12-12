@@ -49,7 +49,9 @@ static std::vector<std::string> parse_csv_line(const std::string &line) {
             // do NOT add ch as we do not know if it is a single or double
             quote = true;
         } else if (ch != '"' && quote) {
-            // single double-quote; used before an open curly brace; add ch
+            // two conditions:
+            // 1. single double-quote (ch != '"' && quote):
+            //    usually ch is '{' or ','
             quote = false;
             cell += ch;
         } else if (ch == '"' && quote) {
@@ -99,40 +101,38 @@ static nlohmann::json csv_to_json(std::istream &stream) {
 static std::vector<Box> json_to_box(const nlohmann::json &json) {
     std::vector<Box> boxes;
     for (auto &j : json) {
-        std::array<bool, 7> faults = {false};
+        unsigned int cond = 0;
+        Fault fault;
         std::array<bool, 3> conditions = {false};
+
+        for (auto &c : j["region_attributes"]["condition"].items()) {
+            if (c.key() == "fair") {
+                cond = 1;
+            } else if (c.key() == "poor") {
+                cond = 2;
+            } else if (c.key() == "verypoor") {
+                cond = 3;
+            }
+        }
 
         for (auto &f : j["region_attributes"]["fault"].items()) {
             if (f.value() == false) {
                 continue;
             }
             if (f.key() == "bump") {
-                faults[0] = 1;
+                fault.bump = cond;
             } else if (f.key() == "crack") {
-                faults[1] = 1;
+                fault.crack = cond;
             } else if (f.key() == "depression") {
-                faults[2] = 1;
+                fault.depression = cond;
             } else if (f.key() == "displacement") {
-                faults[3] = 1;
+                fault.displacement = cond;
             } else if (f.key() == "vegetation") {
-                faults[4] = 1;
+                fault.vegetation = cond;
             } else if (f.key() == "uneven") {
-                faults[5] = 1;
+                fault.uneven = cond;
             } else if (f.key() == "pothole") {
-                faults[6] = 1;
-            }
-        }
-
-        for (auto &c : j["region_attributes"]["condition"].items()) {
-            if (c.value() == false) {
-                continue;
-            }
-            if (c.key() == "fair") {
-                conditions[0] = 1;
-            } else if (c.key() == "poor") {
-                conditions[1] = 1;
-            } else if (c.key() == "verypoor") {
-                conditions[2] = 1;
+                fault.pothole = cond;
             }
         }
 
@@ -142,8 +142,7 @@ static std::vector<Box> json_to_box(const nlohmann::json &json) {
         bx.y = j["region_shape_attributes"].value("y", -1);
         bx.w = j["region_shape_attributes"].value("width", -1);
         bx.h = j["region_shape_attributes"].value("height", -1);
-        bx.faults = faults;
-        bx.conds = conditions;
+        bx.fault = fault;
 
         boxes.push_back(bx);
     }
@@ -156,7 +155,8 @@ static std::vector<BBox> group_box(const std::vector<Box> &boxes) {
     // Group the boxes by their image
     for (const auto &b : boxes) {
         // skip box with no faults and conditions
-        if (b.conds == std::array<bool, 3>{false, false, false}) {
+        // parse b.fault as uint32_t to check if it is 0
+        if (*(uint32_t *)&b.fault == 0) {
             continue;
         }
         img_map[b.image].push_back(b);
@@ -186,6 +186,18 @@ static std::string join(const std::vector<std::string> &vec,
     return res;
 }
 
+Fault combine(const Fault &lhs, const Fault &rhs) {
+    Fault c;
+    c.bump = lhs.bump | rhs.bump;
+    c.crack = lhs.crack | rhs.crack;
+    c.depression = lhs.depression | rhs.depression;
+    c.displacement = lhs.displacement | rhs.displacement;
+    c.vegetation = lhs.vegetation | rhs.vegetation;
+    c.uneven = lhs.uneven | rhs.uneven;
+    c.pothole = lhs.pothole | rhs.pothole;
+    return c;
+}
+
 std::vector<BBox> Annot::CsvToBBox(const std::string &csv_path) {
     std::ifstream csvFile(csv_path);
     nlohmann::json json = csv_to_json(csvFile);
@@ -199,34 +211,9 @@ void Annot::PrintBBox(const std::vector<BBox> &boxes) {
         for (auto &bx : bb.boxes) {
             std::cout << "  " << bx.x << ", " << bx.y << ", " << bx.w << ", "
                       << bx.h << std::endl;
-            std::cout << "    faults: " << join(FaultToStr(bx), "&")
-                      << std::endl;
-            std::cout << "    conditions: " << join(CondToStr(bx), "&")
-                      << std::endl;
+            std::cout << "    faults: " << bx.fault.ToStr() << std::endl;
         }
     }
-}
-
-// map Fault array to string
-std::vector<std::string> Annot::FaultToStr(const Box &bx) {
-    std::vector<std::string> vec;
-    for (size_t i = 0; i < bx.faults.size(); ++i) {
-        if (bx.faults[i]) {
-            vec.push_back(Annot::kFaultNames[i]);
-        }
-    }
-    return vec;
-}
-
-// map Condition array to string
-std::vector<std::string> Annot::CondToStr(const Box &bx) {
-    std::vector<std::string> vec;
-    for (size_t i = 0; i < bx.conds.size(); ++i) {
-        if (bx.conds[i]) {
-            vec.push_back(Annot::kCondNames[i]);
-        }
-    }
-    return vec;
 }
 
 // thickness of the bounding box
@@ -239,7 +226,7 @@ static const cv::Scalar kLineColor(0, 255, 0);    // Green
 void Annot::ImgWrite(const BBox &bbx, const std::string &src,
                      const std::string &dst) {
 
-    std::array<bool, 7> faults_all = {false}; // for categorizing
+    Fault fault_all; // for categorizing
     std::filesystem::path dir_src(src);
     std::filesystem::path dir_dst(dst);
 
@@ -254,9 +241,7 @@ void Annot::ImgWrite(const BBox &bbx, const std::string &src,
     // Step 2: Draw the Bounding Boxes
     for (const auto &bbx : bbx.boxes) {
         // get all faults for categorizing
-        for (size_t i = 0; i < bbx.faults.size(); ++i) {
-            faults_all[i] = faults_all[i] || bbx.faults[i];
-        }
+        fault_all = combine(fault_all, bbx.fault);
 
         cv::Rect box(bbx.x, bbx.y, bbx.w, bbx.h);
         // Positioning the text above the box
@@ -264,16 +249,12 @@ void Annot::ImgWrite(const BBox &bbx, const std::string &src,
         cv::rectangle(img, box, kLineColor, kThick);
 
         // Add text
-        std::string txt =
-            join(FaultToStr(bbx), "&") + " | " + join(CondToStr(bbx), "&");
+        std::string txt = bbx.fault.ToStr();
         cv::putText(img, txt, txtOrg, kFontFace, kFontScale, kTxtColor, kThick);
     }
 
-    std::string cate = join(FaultToStr({.faults = faults_all}), "_");
-
-    // Step 3: Display the Image
-    cv::namedWindow("Image with Bounding Box", cv::WINDOW_AUTOSIZE);
-    if (!cv::imwrite(dir_dst / (cate + "_" + bbx.image), img)) {
+    // Step 3. Save the Image
+    if (!cv::imwrite(dir_dst / (fault_all.ToStr() + "_" + bbx.image), img)) {
         std::cerr << "Failed to save image" << std::endl;
     }
 }
