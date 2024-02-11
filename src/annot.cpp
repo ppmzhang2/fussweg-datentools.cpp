@@ -268,3 +268,19 @@ void Annot::VisBBox(const std::string &dir_csv, const std::string &src,
         }
     }
 }
+
+void Annot::Stats(const std::string &dir_csv) {
+    FaultStats stats;
+    unsigned int img_cnt = 0;
+    for (const auto &f : PathFinder::AllCsvs(dir_csv)) {
+        std::vector<BBox> bboxes = Annot::CsvToBBox(f);
+        for (auto &bbx : bboxes) {
+            for (auto &bx : bbx.boxes) {
+                stats.AddFault(bx.fault);
+            }
+        }
+        img_cnt += bboxes.size();
+    }
+    std::cout << "Total images: " << img_cnt << std::endl;
+    stats.Print();
+}

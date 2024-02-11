@@ -45,7 +45,7 @@ int parse_args(int argc, char *argv[]) {
 
     std::string op = argv[1];
     if (op != "exif" && op != "displacement" && op != "bbox-csv" &&
-        op != "pov-roi" && op != "pov-transform") {
+        op != "bbox-stat" && op != "pov-roi" && op != "pov-transform") {
         throw std::runtime_error("Unknown operation. "
                                  "Use 'exif', 'displacement', "
                                  "'pov-roi' or 'pov-transform'.");
@@ -57,6 +57,9 @@ int parse_args(int argc, char *argv[]) {
         throw std::runtime_error("Invalid number of arguments.");
     }
     if (op == "bbox-csv" && argc != 5) {
+        throw std::runtime_error("Invalid number of arguments.");
+    }
+    if (op == "bbox-stat" && argc != 3) {
         throw std::runtime_error("Invalid number of arguments.");
     }
     if (op == "pov-roi" && argc != 20) {
@@ -84,6 +87,11 @@ int parse_args(int argc, char *argv[]) {
         std::string dir_src = argv[3];
         std::string dir_dst = argv[4];
         Annot::VisBBox(dir_csv, dir_src, dir_dst);
+        return 0;
+    }
+    if (op == "bbox-stat") {
+        std::string dir_csv = argv[2];
+        Annot::Stats(dir_csv);
         return 0;
     }
     if (op == "pov-roi") {
