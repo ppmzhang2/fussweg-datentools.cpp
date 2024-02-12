@@ -1,6 +1,7 @@
 #pragma once
 
 #include <iostream>
+#define MAX(x, y) ((x) > (y) ? (x) : (y))
 
 struct Fault {
     unsigned int bump : 2;
@@ -138,13 +139,16 @@ struct FaultStats {
         std::cout << "crack_verypoor: " << crack_verypoor << std::endl;
         std::cout << "depression_fair: " << depression_fair << std::endl;
         std::cout << "depression_poor: " << depression_poor << std::endl;
-        std::cout << "depression_verypoor: " << depression_verypoor << std::endl;
+        std::cout << "depression_verypoor: " << depression_verypoor
+                  << std::endl;
         std::cout << "displacement_fair: " << displacement_fair << std::endl;
         std::cout << "displacement_poor: " << displacement_poor << std::endl;
-        std::cout << "displacement_verypoor: " << displacement_verypoor << std::endl;
+        std::cout << "displacement_verypoor: " << displacement_verypoor
+                  << std::endl;
         std::cout << "vegetation_fair: " << vegetation_fair << std::endl;
         std::cout << "vegetation_poor: " << vegetation_poor << std::endl;
-        std::cout << "vegetation_verypoor: " << vegetation_verypoor << std::endl;
+        std::cout << "vegetation_verypoor: " << vegetation_verypoor
+                  << std::endl;
         std::cout << "uneven_fair: " << uneven_fair << std::endl;
         std::cout << "uneven_poor: " << uneven_poor << std::endl;
         std::cout << "uneven_verypoor: " << uneven_verypoor << std::endl;
@@ -160,9 +164,12 @@ namespace Annot {
 
     std::vector<BBox> CsvToBBox(const std::string &);
 
+    std::vector<BBox> JsonToBBox(const std::string &);
+
     void ImgWrite(const BBox &, const std::string &, const std::string &);
 
-    void VisBBox(const std::string &, const std::string &, const std::string &);
+    void DrawBox(const std::string &, const std::string &, const std::string &,
+                 const std::string &);
 
     void Stats(const std::string &);
 

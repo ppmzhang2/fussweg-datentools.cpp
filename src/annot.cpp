@@ -70,7 +70,7 @@ static std::vector<std::string> parse_csv_line(const std::string &line) {
     return result;
 }
 
-static nlohmann::json csv_to_json(std::istream &stream) {
+static nlohmann::json read_csv(std::istream &stream) {
     std::string line;
     getline(stream, line); // Read the header line
 
@@ -98,6 +98,33 @@ static nlohmann::json csv_to_json(std::istream &stream) {
     return jsonArray;
 }
 
+static nlohmann::json read_json(std::istream &stream) {
+    nlohmann::json json_raw, json_array;
+    try {
+        stream >> json_raw;
+    } catch (const nlohmann::json::parse_error &e) {
+        std::cerr << "Raw JSON Parse Error: " << e.what() << "\n";
+        return 2;
+    }
+
+    // Loop through "_via_img_metadata"
+    for (auto &[key, value] : json_raw["_via_img_metadata"].items()) {
+        nlohmann::json j;
+
+        // skip empty "regions" as no fault is detected
+        if (!value["regions"].empty()) {
+            for (const auto &region : value["regions"]) {
+                j["filename"] = value["filename"];
+                j["region_attributes"] = region["region_attributes"];
+                j["region_shape_attributes"] = region["shape_attributes"];
+                // most fine-grained data; no grouping
+                json_array.push_back(j);
+            }
+        }
+    }
+    return json_array;
+}
+
 static std::vector<Box> json_to_box(const nlohmann::json &json) {
     std::vector<Box> boxes;
     for (auto &j : json) {
@@ -105,6 +132,7 @@ static std::vector<Box> json_to_box(const nlohmann::json &json) {
         Fault fault;
         std::array<bool, 3> conditions = {false};
 
+        // TODO: check if the key exists
         for (auto &c : j["region_attributes"]["condition"].items()) {
             if (c.key() == "fair") {
                 cond = 1;
@@ -115,6 +143,7 @@ static std::vector<Box> json_to_box(const nlohmann::json &json) {
             }
         }
 
+        // TODO: check if the key exists
         for (auto &f : j["region_attributes"]["fault"].items()) {
             if (f.value() == false) {
                 continue;
@@ -186,22 +215,30 @@ static std::string join(const std::vector<std::string> &vec,
     return res;
 }
 
-Fault combine(const Fault &lhs, const Fault &rhs) {
+inline static Fault combine(const Fault &lhs, const Fault &rhs) {
     Fault c;
-    c.bump = lhs.bump | rhs.bump;
-    c.crack = lhs.crack | rhs.crack;
-    c.depression = lhs.depression | rhs.depression;
-    c.displacement = lhs.displacement | rhs.displacement;
-    c.vegetation = lhs.vegetation | rhs.vegetation;
-    c.uneven = lhs.uneven | rhs.uneven;
-    c.pothole = lhs.pothole | rhs.pothole;
+    c.bump = MAX(lhs.bump, rhs.bump);
+    c.crack = MAX(lhs.crack, rhs.crack);
+    c.depression = MAX(lhs.depression, rhs.depression);
+    c.displacement = MAX(lhs.displacement, rhs.displacement);
+    c.vegetation = MAX(lhs.vegetation, rhs.vegetation);
+    c.uneven = MAX(lhs.uneven, rhs.uneven);
+    c.pothole = MAX(lhs.pothole, rhs.pothole);
     return c;
 }
 
-std::vector<BBox> Annot::CsvToBBox(const std::string &csv_path) {
-    std::ifstream csvFile(csv_path);
-    nlohmann::json json = csv_to_json(csvFile);
+std::vector<BBox> Annot::CsvToBBox(const std::string &path) {
+    std::ifstream file(path);
+    nlohmann::json json = read_csv(file);
     std::vector<BBox> bboxes = group_box(json_to_box(json));
+    return bboxes;
+}
+
+std::vector<BBox> Annot::JsonToBBox(const std::string &path) {
+    std::ifstream file(path);
+    nlohmann::json json = read_json(file);
+    std::vector<Box> boxes = json_to_box(json);
+    std::vector<BBox> bboxes = group_box(boxes);
     return bboxes;
 }
 
@@ -259,21 +296,38 @@ void Annot::ImgWrite(const BBox &bbx, const std::string &src,
     }
 }
 
-void Annot::VisBBox(const std::string &dir_csv, const std::string &src,
-                    const std::string &dst) {
-    for (const auto &f : PathFinder::AllCsvs(dir_csv)) {
-        std::vector<BBox> bboxes = Annot::CsvToBBox(f);
+void Annot::DrawBox(const std::string &dir_lab, const std::string &src,
+                    const std::string &dst, const std::string &ext) {
+    std::vector<BBox> bboxes;
+    for (const auto &f : PathFinder::AllFiles(dir_lab, ext)) {
+        // TODO: make it more elegant
+        if (ext == ".csv") {
+            bboxes = Annot::CsvToBBox(f);
+        } else {
+            bboxes = Annot::JsonToBBox(f);
+        }
         for (auto &bbx : bboxes) {
             Annot::ImgWrite(bbx, src, dst);
         }
     }
 }
 
-void Annot::Stats(const std::string &dir_csv) {
+void Annot::Stats(const std::string &dir_lab) {
     FaultStats stats;
     unsigned int img_cnt = 0;
-    for (const auto &f : PathFinder::AllCsvs(dir_csv)) {
+    // Loop through all CSV files
+    for (const auto &f : PathFinder::AllFiles(dir_lab, ".csv")) {
         std::vector<BBox> bboxes = Annot::CsvToBBox(f);
+        for (auto &bbx : bboxes) {
+            for (auto &bx : bbx.boxes) {
+                stats.AddFault(bx.fault);
+            }
+        }
+        img_cnt += bboxes.size();
+    }
+    // Loop through all JSON files
+    for (const auto &f : PathFinder::AllFiles(dir_lab, ".json")) {
+        std::vector<BBox> bboxes = Annot::JsonToBBox(f);
         for (auto &bbx : bboxes) {
             for (auto &bx : bbx.boxes) {
                 stats.AddFault(bx.fault);

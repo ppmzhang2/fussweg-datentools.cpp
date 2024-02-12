@@ -30,6 +30,9 @@ int parse_args(int argc, char *argv[]) {
                   << "<output_file_path>" << std::endl;
         std::cout << "  " << argv[0] << " displacement <directory_path> "
                   << "<output_file_path>" << std::endl;
+        std::cout << "  " << argv[0] << " bbox-draw <label_dir> <src_dir> "
+                  << "<dst_dir> <ext>" << std::endl;
+        std::cout << "  " << argv[0] << " bbox-stat <label_dir>" << std::endl;
         std::cout << "  " << argv[0] << " pov-roi <width> <height> \\\n"
                   << "    <vp_t_bl_x> <vp_t_bl_y> <vp_t_tl_x> <vp_t_tl_y> \\\n"
                   << "    <vp_t_br_x> <vp_t_br_y> <vp_t_tr_x> <vp_t_tr_y> \\\n"
@@ -44,7 +47,7 @@ int parse_args(int argc, char *argv[]) {
     }
 
     std::string op = argv[1];
-    if (op != "exif" && op != "displacement" && op != "bbox-csv" &&
+    if (op != "exif" && op != "displacement" && op != "bbox-draw" &&
         op != "bbox-stat" && op != "pov-roi" && op != "pov-transform") {
         throw std::runtime_error("Unknown operation. "
                                  "Use 'exif', 'displacement', "
@@ -56,7 +59,7 @@ int parse_args(int argc, char *argv[]) {
     if (op == "displacement" && argc != 4) {
         throw std::runtime_error("Invalid number of arguments.");
     }
-    if (op == "bbox-csv" && argc != 5) {
+    if (op == "bbox-draw" && argc != 6) {
         throw std::runtime_error("Invalid number of arguments.");
     }
     if (op == "bbox-stat" && argc != 3) {
@@ -82,16 +85,23 @@ int parse_args(int argc, char *argv[]) {
         writeToFile(out_path, out.dump(4));
         return 0;
     }
-    if (op == "bbox-csv") {
-        std::string dir_csv = argv[2];
+    if (op == "bbox-draw") {
+        std::string dir_lab = argv[2];
         std::string dir_src = argv[3];
         std::string dir_dst = argv[4];
-        Annot::VisBBox(dir_csv, dir_src, dir_dst);
+        std::string ext = argv[5];
+        // TODO: make it more robust
+        if (ext == "json") {
+            ext = ".json";
+        } else {
+            ext = ".csv";
+        }
+        Annot::DrawBox(dir_lab, dir_src, dir_dst, ext);
         return 0;
     }
     if (op == "bbox-stat") {
-        std::string dir_csv = argv[2];
-        Annot::Stats(dir_csv);
+        std::string dir_lab = argv[2];
+        Annot::Stats(dir_lab);
         return 0;
     }
     if (op == "pov-roi") {
