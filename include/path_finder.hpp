@@ -1,5 +1,6 @@
 #pragma once
 
+#include <algorithm>
 #include <filesystem>
 #include <vector>
 
@@ -9,6 +10,6 @@ namespace PathFinder {
 
     Paths AllImages(const std::string &);
 
-    Paths AllCsvs(const std::string &);
+    Paths AllFiles(const std::string &, const std::string &);
 
 } // namespace PathFinder
