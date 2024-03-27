@@ -1,7 +1,8 @@
 #pragma once
 
 #include <iostream>
-#define MAX(x, y) ((x) > (y) ? (x) : (y))
+#include <vector>
+#define MAX2(x, y) ((x) > (y) ? (x) : (y))
 
 struct Fault {
     unsigned int bump : 2;
@@ -70,6 +71,90 @@ struct Box {
 struct BBox {
     std::string image;
     std::vector<Box> boxes;
+};
+
+struct FaultCount {
+    std::string image;
+    uint8_t bump_fair;
+    uint8_t bump_poor;
+    uint8_t bump_verypoor;
+    uint8_t crack_fair;
+    uint8_t crack_poor;
+    uint8_t crack_verypoor;
+    uint8_t depression_fair;
+    uint8_t depression_poor;
+    uint8_t depression_verypoor;
+    uint8_t displacement_fair;
+    uint8_t displacement_poor;
+    uint8_t displacement_verypoor;
+    uint8_t vegetation_fair;
+    uint8_t vegetation_poor;
+    uint8_t vegetation_verypoor;
+    uint8_t uneven_fair;
+    uint8_t uneven_poor;
+    uint8_t uneven_verypoor;
+    uint8_t pothole_fair;
+    uint8_t pothole_poor;
+    uint8_t pothole_verypoor;
+
+    // constructor
+    FaultCount()
+        : image(""), bump_fair(0), bump_poor(0), bump_verypoor(0),
+          crack_fair(0), crack_poor(0), crack_verypoor(0), depression_fair(0),
+          depression_poor(0), depression_verypoor(0), displacement_fair(0),
+          displacement_poor(0), displacement_verypoor(0), vegetation_fair(0),
+          vegetation_poor(0), vegetation_verypoor(0), uneven_fair(0),
+          uneven_poor(0), uneven_verypoor(0), pothole_fair(0), pothole_poor(0),
+          pothole_verypoor(0) {}
+
+    void FromBBox(const BBox &bbox) {
+        image = bbox.image;
+        for (const auto &box : bbox.boxes) {
+            bump_fair += box.fault.bump == 1;
+            bump_poor += box.fault.bump == 2;
+            bump_verypoor += box.fault.bump == 3;
+            crack_fair += box.fault.crack == 1;
+            crack_poor += box.fault.crack == 2;
+            crack_verypoor += box.fault.crack == 3;
+            depression_fair += box.fault.depression == 1;
+            depression_poor += box.fault.depression == 2;
+            depression_verypoor += box.fault.depression == 3;
+            displacement_fair += box.fault.displacement == 1;
+            displacement_poor += box.fault.displacement == 2;
+            displacement_verypoor += box.fault.displacement == 3;
+            vegetation_fair += box.fault.vegetation == 1;
+            vegetation_poor += box.fault.vegetation == 2;
+            vegetation_verypoor += box.fault.vegetation == 3;
+            uneven_fair += box.fault.uneven == 1;
+            uneven_poor += box.fault.uneven == 2;
+            uneven_verypoor += box.fault.uneven == 3;
+            pothole_fair += box.fault.pothole == 1;
+            pothole_poor += box.fault.pothole == 2;
+            pothole_verypoor += box.fault.pothole == 3;
+        }
+    }
+
+    std::string ToStr() const {
+        return image + "," + std::to_string(bump_fair) + "," +
+               std::to_string(bump_poor) + "," + std::to_string(bump_verypoor) +
+               "," + std::to_string(crack_fair) + "," +
+               std::to_string(crack_poor) + "," +
+               std::to_string(crack_verypoor) + "," +
+               std::to_string(depression_fair) + "," +
+               std::to_string(depression_poor) + "," +
+               std::to_string(depression_verypoor) + "," +
+               std::to_string(displacement_fair) + "," +
+               std::to_string(displacement_poor) + "," +
+               std::to_string(displacement_verypoor) + "," +
+               std::to_string(vegetation_fair) + "," +
+               std::to_string(vegetation_poor) + "," +
+               std::to_string(vegetation_verypoor) + "," +
+               std::to_string(uneven_fair) + "," + std::to_string(uneven_poor) +
+               "," + std::to_string(uneven_verypoor) + "," +
+               std::to_string(pothole_fair) + "," +
+               std::to_string(pothole_poor) + "," +
+               std::to_string(pothole_verypoor);
+    }
 };
 
 struct FaultStats {
@@ -170,6 +255,8 @@ namespace Annot {
 
     void DrawBox(const std::string &, const std::string &, const std::string &,
                  const std::string &);
+
+    void ExportStats(const std::string &, const std::string &);
 
     void Stats(const std::string &);
 

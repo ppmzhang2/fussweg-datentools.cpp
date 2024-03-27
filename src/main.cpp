@@ -48,27 +48,17 @@ int parse_args(int argc, char *argv[]) {
 
     std::string op = argv[1];
     if (op != "exif" && op != "displacement" && op != "bbox-draw" &&
-        op != "bbox-stat" && op != "pov-roi" && op != "pov-transform") {
+        op != "bbox-export-stat" && op != "bbox-stat" && op != "pov-roi" &&
+        op != "pov-transform") {
         throw std::runtime_error("Unknown operation. "
                                  "Use 'exif', 'displacement', "
                                  "'pov-roi' or 'pov-transform'.");
     }
-    if (op == "exif" && argc != 4) {
-        throw std::runtime_error("Invalid number of arguments.");
-    }
-    if (op == "displacement" && argc != 4) {
-        throw std::runtime_error("Invalid number of arguments.");
-    }
-    if (op == "bbox-draw" && argc != 6) {
-        throw std::runtime_error("Invalid number of arguments.");
-    }
-    if (op == "bbox-stat" && argc != 3) {
-        throw std::runtime_error("Invalid number of arguments.");
-    }
-    if (op == "pov-roi" && argc != 20) {
-        throw std::runtime_error("Invalid number of arguments.");
-    }
-    if (op == "pov-transform" && argc != 14) {
+    if ((op == "exif" && argc != 4) || (op == "displacement" && argc != 4) ||
+        (op == "bbox-draw" && argc != 6) || (op == "bbox-stat" && argc != 3) ||
+        (op == "bbox-export-stat" && argc != 4) ||
+        (op == "pov-roi" && argc != 20) ||
+        (op == "pov-transform" && argc != 14)) {
         throw std::runtime_error("Invalid number of arguments.");
     }
     if (op == "exif") {
@@ -97,6 +87,12 @@ int parse_args(int argc, char *argv[]) {
             ext = ".csv";
         }
         Annot::DrawBox(dir_lab, dir_src, dir_dst, ext);
+        return 0;
+    }
+    if (op == "bbox-export-stat") {
+        std::string dir_lab = argv[2];
+        std::string csv_file = argv[3];
+        Annot::ExportStats(dir_lab, csv_file);
         return 0;
     }
     if (op == "bbox-stat") {
