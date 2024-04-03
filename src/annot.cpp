@@ -217,13 +217,13 @@ static std::string join(const std::vector<std::string> &vec,
 
 inline static Fault combine(const Fault &lhs, const Fault &rhs) {
     Fault c;
-    c.bump = MAX(lhs.bump, rhs.bump);
-    c.crack = MAX(lhs.crack, rhs.crack);
-    c.depression = MAX(lhs.depression, rhs.depression);
-    c.displacement = MAX(lhs.displacement, rhs.displacement);
-    c.vegetation = MAX(lhs.vegetation, rhs.vegetation);
-    c.uneven = MAX(lhs.uneven, rhs.uneven);
-    c.pothole = MAX(lhs.pothole, rhs.pothole);
+    c.bump = MAX2(lhs.bump, rhs.bump);
+    c.crack = MAX2(lhs.crack, rhs.crack);
+    c.depression = MAX2(lhs.depression, rhs.depression);
+    c.displacement = MAX2(lhs.displacement, rhs.displacement);
+    c.vegetation = MAX2(lhs.vegetation, rhs.vegetation);
+    c.uneven = MAX2(lhs.uneven, rhs.uneven);
+    c.pothole = MAX2(lhs.pothole, rhs.pothole);
     return c;
 }
 
@@ -308,6 +308,44 @@ void Annot::DrawBox(const std::string &dir_lab, const std::string &src,
         }
         for (auto &bbx : bboxes) {
             Annot::ImgWrite(bbx, src, dst);
+        }
+    }
+}
+
+void Annot::ExportStats(const std::string &dir_lab,
+                        const std::string &filename) {
+    // Create an empty file
+    std::ofstream file(filename, std::ios::out | std::ios::trunc);
+    if (!file.is_open()) {
+        std::cerr << "Error: Could not open file " << filename << std::endl;
+        return;
+    }
+
+    // Write the header
+    file
+        << "image,bump_fair,bump_poor,bump_verypoor,crack_fair,crack_poor,"
+           "crack_verypoor,depression_fair,depression_poor,depression_verypoor,"
+           "displacement_fair,displacement_poor,displacement_verypoor,"
+           "vegetation_fair,vegetation_poor,vegetation_verypoor,"
+           "uneven_fair,uneven_poor,uneven_verypoor,"
+           "pothole_fair,pothole_poor,pothole_verypoor\n";
+
+    // Loop through all CSV files
+    for (const auto &f : PathFinder::AllFiles(dir_lab, ".csv")) {
+        std::vector<BBox> bboxes = Annot::CsvToBBox(f);
+        for (const auto &bbx : bboxes) {
+            FaultCount fc;
+            fc.FromBBox(bbx);
+            file << fc.ToStr() << "\n";
+        }
+    }
+    // Loop through all JSON files
+    for (const auto &f : PathFinder::AllFiles(dir_lab, ".json")) {
+        std::vector<BBox> bboxes = Annot::JsonToBBox(f);
+        for (const auto &bbx : bboxes) {
+            FaultCount fc;
+            fc.FromBBox(bbx);
+            file << fc.ToStr() << "\n";
         }
     }
 }
