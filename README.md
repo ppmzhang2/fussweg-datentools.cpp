@@ -35,6 +35,35 @@ To ensure a smooth development process, follow these steps:
 
    This will build the `vcpkg` executable and place it in the `vcpkg` directory.
 
+## Usage
+
+### Perspective Transformation
+
+Find the perspective transformation matrix by providing the width and height,
+and eight points in the source image, which will determine two vanishing points.
+The program will further calculate the quadrilateral region of interest (ROI)
+by joining the vanishing points with the four apexes of the source image, and
+returning the intersections of the lines.
+
+```bash
+FusswegDatentools pov-roi 5568 4872 \
+1404 3764 2159 1519 5033 2712 3849 1159 3710 275 3279 295 1026 3774 5187 3710
+# Output:
+# TL -> 2537.67, 145.667
+# TR -> 2975.28, 124.631
+# BR -> 5551.82, 4842.37
+# BL -> 0, 4872
+```
+
+Use the output to transform images to a bird's-eye view:
+
+```bash
+FusswegDatentools pov-transform 200 1600 \
+2537.67 145.667 2975.28 124.631 5551.82 4842.37 0.0 4872.0 \
+path/to/image/folder \
+path/to/output/folder
+```
+
 ## References
 
 - Demo images from [Exif Samples](https://github.com/ianare/exif-samples)
