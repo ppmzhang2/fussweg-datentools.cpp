@@ -5,73 +5,54 @@
         "minor": 27,
         "patch": 0
     },
+    // TODO: consider adding `-mavx2` for AVX2 support
     "configurePresets": [
         {
-            "name": "ux-vcpkg",
-            "displayName": "Unix Makefiles (vcpkg)",
-            "description": "Local development using Unix Makefiles and vcpkg",
+            "name": "ux-debug",
+            "displayName": "Unix Makefiles Debug",
+            "description": "Debug build using Unix Makefiles",
             "hidden": false,
-            "binaryDir": "${sourceDir}/build",
+            "binaryDir": "${sourceDir}/build", // clangd LSP requires no presetName
+            "generator": "Unix Makefiles",
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Debug",
+                "CMAKE_EXPORT_COMPILE_COMMANDS": true,
+                "CMAKE_CXX_STANDARD_REQUIRED": true,
+                "CMAKE_CXX_STANDARD": "20",
+                "CMAKE_CXX_FLAGS": "-pthread -g -O0 -Wall -Wextra -Wpedantic -DDEBUG",
+                "CMAKE_EXE_LINKER_FLAGS": "-g"
+            }
+        },
+        {
+            "name": "ux-release",
+            "displayName": "Unix Makefiles Release",
+            "description": "Release build using Unix Makefiles",
+            "hidden": false,
+            "binaryDir": "${sourceDir}/build", // clangd LSP requires no presetName
             "generator": "Unix Makefiles",
             "cacheVariables": {
                 "CMAKE_BUILD_TYPE": "Release",
                 "CMAKE_EXPORT_COMPILE_COMMANDS": true,
-                "CMAKE_CXX_STANDARD": "20",
                 "CMAKE_CXX_STANDARD_REQUIRED": true,
-                "CMAKE_TOOLCHAIN_FILE": {
-                    "type": "FILEPATH",
-                    "value": "${sourceDir}/vcpkg/scripts/buildsystems/vcpkg.cmake"
-                },
-                "CMAKE_BUILD_WITH_INSTALL_RPATH": true
-            }
-        },
-        {
-            "name": "ninja-vcpkg",
-            "displayName": "Ninja (vcpkg)",
-            "description": "Configure using Ninja and vcpkg",
-            "hidden": false,
-            "binaryDir": "${sourceDir}/build/${presetName}",
-            "generator": "Ninja",
-            "cacheVariables": {
-                "CMAKE_BUILD_TYPE": "Release",
-                "CMAKE_EXPORT_COMPILE_COMMANDS": true,
                 "CMAKE_CXX_STANDARD": "20",
-                "CMAKE_CXX_STANDARD_REQUIRED": true,
-                "CMAKE_TOOLCHAIN_FILE": {
-                    "type": "FILEPATH",
-                    "value": "${sourceDir}/vcpkg/scripts/buildsystems/vcpkg.cmake"
-                },
-                "CMAKE_BUILD_WITH_INSTALL_RPATH": true
+                "CMAKE_CXX_FLAGS": "-pthread -O3 -DNDEBUG -Wall -Wextra -Wpedantic",
+                "CMAKE_EXE_LINKER_FLAGS": "-O3"
             }
         }
     ],
     "buildPresets": [
         {
-            "name": "ux-vcpkg-debug",
-            "displayName": "Unix Makefiles (vcpkg) Debug",
-            "description": "Debug build using Unix Makefiles and vcpkg",
-            "configurePreset": "ux-vcpkg",
+            "name": "ux-debug-build",
+            "displayName": "Unix Makefiles Debug Build",
+            "description": "Build using the Unix Makefiles Debug configuration",
+            "configurePreset": "ux-debug",
             "configuration": "Debug"
         },
         {
-            "name": "ux-vcpkg-release",
-            "displayName": "Unix Makefiles (vcpkg) Release",
-            "description": "Release build using Unix Makefiles and vcpkg",
-            "configurePreset": "ux-vcpkg",
-            "configuration": "Release"
-        },
-        {
-            "name": "ninja-vcpkg-debug",
-            "displayName": "Ninja (vcpkg) Debug",
-            "description": "Debug build using Ninja and vcpkg",
-            "configurePreset": "ninja-vcpkg",
-            "configuration": "Debug"
-        },
-        {
-            "name": "ninja-vcpkg-release",
-            "displayName": "Ninja (vcpkg) Release",
-            "description": "Release build using Ninja and vcpkg",
-            "configurePreset": "ninja-vcpkg",
+            "name": "ux-release-build",
+            "displayName": "Unix Makefiles Release Build",
+            "description": "Build using the Unix Makefiles Release configuration",
+            "configurePreset": "ux-release",
             "configuration": "Release"
         }
     ]

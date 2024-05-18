@@ -50,7 +50,7 @@ namespace Exif {
 
         void Print() const;
 
-        static const void ListAll(const std::string &path);
+        static void ListAll(const std::string &path);
     };
 
 } // namespace Exif

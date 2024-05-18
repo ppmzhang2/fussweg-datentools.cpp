@@ -130,7 +130,6 @@ static std::vector<Box> json_to_box(const nlohmann::json &json) {
     for (auto &j : json) {
         unsigned int cond = 0;
         Fault fault;
-        std::array<bool, 3> conditions = {false};
 
         // TODO: check if the key exists
         for (auto &c : j["region_attributes"]["condition"].items()) {
@@ -201,18 +200,6 @@ static std::vector<BBox> group_box(const std::vector<Box> &boxes) {
     }
 
     return bboxes;
-}
-
-static std::string join(const std::vector<std::string> &vec,
-                        const std::string &dlm) {
-    std::string res;
-    for (size_t i = 0; i < vec.size(); ++i) {
-        res += vec[i];
-        if (i < vec.size() - 1) {
-            res += dlm;
-        }
-    }
-    return res;
 }
 
 inline static Fault combine(const Fault &lhs, const Fault &rhs) {

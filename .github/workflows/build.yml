@@ -18,24 +18,26 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v2
 
-    - name: Setup vcpkg
-      run: |
-        git submodule update --init --recursive
-        ./vcpkg/bootstrap-vcpkg.sh
-
     - name: Install dependencies
       run: |
-        sudo apt update -y
-        sudo apt upgrade -y
+        sudo apt-get update
         sudo apt-get install -y cmake
-        sudo apt-get install -y libdbus-1-dev libxi-dev libxtst-dev # at-spi2-core
-        sudo apt-get install -y libgtk-3-dev # gtk3
+
+    - name: Set up LLVM
+      uses: llvm/llvm-action@v1
+      with:
+        version: '19'
+
+    - name: Compile Contribs
+      run: |
+        ./scripts/zlibng_build.sh
+        ./scripts/libpng_build.sh
+        ./scripts/exiv2_build.sh
+        ./scripts/opencv_build.sh
 
     - name: Run build script
       run: |
-        cmake --preset ux-vcpkg \
-            -DCMAKE_EXE_LINKER_FLAGS="-static-libgcc -static-libstdc++" \
-            -DVCPKG_TARGET_TRIPLET=x64-linux # static linking
+        cmake --preset=ux-vcpkg
         cmake --build --preset=ux-vcpkg-release
 
     - name: Extract branch or tag name

@@ -224,12 +224,12 @@ inline Exiv2::ExifData get_exif(const std::string &path) {
 // Throws:
 //   std::runtime_error if any error occurs.
 Exif::Attrs::Attrs(const std::string &path)
-    : path(path), exif_ver(std::nullopt), model(std::nullopt),
-      desc(std::nullopt), height(std::nullopt), width(std::nullopt),
-      lat(std::nullopt), lon(std::nullopt), altitude(std::nullopt),
-      ts_gps(std::nullopt), coc(std::nullopt), exposure_time(std::nullopt),
-      iso(std::nullopt), shutter_speed(std::nullopt), aperture(std::nullopt),
-      subj_dist(std::nullopt), focal_length(std::nullopt),
+    : path(""), exif_ver(std::nullopt), desc(std::nullopt), model(std::nullopt),
+      height(std::nullopt), width(std::nullopt), lat(std::nullopt),
+      lon(std::nullopt), altitude(std::nullopt), ts_gps(std::nullopt),
+      coc(std::nullopt), subj_dist(std::nullopt), iso(std::nullopt),
+      aperture(std::nullopt), shutter_speed(std::nullopt),
+      exposure_time(std::nullopt), focal_length(std::nullopt),
       hyperfocal_dist(std::nullopt) {
 
     Exiv2::ExifData dat = get_exif(path);
@@ -276,7 +276,7 @@ void Exif::Attrs::Print() const {
     std::cout << "Hyperfocal distance: " << *hyperfocal_dist << std::endl;
 }
 
-void const Exif::Attrs::ListAll(const std::string &path) {
+void Exif::Attrs::ListAll(const std::string &path) {
     Exiv2::ExifData dat = get_exif(path);
 
     Exiv2::ExifData::const_iterator it = dat.begin();
