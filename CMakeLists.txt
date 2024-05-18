@@ -49,9 +49,9 @@ configure_file(
 )
 
 target_link_libraries(FusswegDatentools PRIVATE
+    Exiv2::exiv2lib
     ${OpenCV_LIBS}
     nlohmann_json::nlohmann_json
-    exiv2lib
 )
 
 target_include_directories(FusswegDatentools PRIVATE
@@ -71,7 +71,7 @@ target_include_directories(FDTTest PRIVATE
 )
 target_link_libraries(FDTTest PRIVATE
     nlohmann_json::nlohmann_json
-    exiv2lib
+    Exiv2::exiv2lib
     GTest::gtest
     GTest::gtest_main
 )

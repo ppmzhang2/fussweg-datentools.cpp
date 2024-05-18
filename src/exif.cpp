@@ -3,6 +3,31 @@
 #include <iomanip>
 #include <iostream>
 
+// Contains the keys of the desired Exiv2 EXIF attributes.
+namespace {
+
+    static constexpr char kK_EXIFVER[] = "Exif.Photo.ExifVersion";
+    static constexpr char kK_MAKE[] = "Exif.Image.Make";
+    static constexpr char kK_MODEL[] = "Exif.Image.Model";
+    static constexpr char kK_DESC[] = "Exif.Image.ImageDescription";
+    static constexpr char kK_HEIGHT[] = "Exif.Photo.PixelYDimension";
+    static constexpr char kK_WIDTH[] = "Exif.Photo.PixelXDimension";
+    static constexpr char kK_LAT[] = "Exif.GPSInfo.GPSLatitude";
+    static constexpr char kK_LON[] = "Exif.GPSInfo.GPSLongitude";
+    static constexpr char kK_LAT_REF[] = "Exif.GPSInfo.GPSLatitudeRef";
+    static constexpr char kK_LON_REF[] = "Exif.GPSInfo.GPSLongitudeRef";
+    static constexpr char kK_ALTITUDE[] = "Exif.GPSInfo.GPSAltitude";
+    static constexpr char kK_GPS_DT[] = "Exif.GPSInfo.GPSDateStamp";
+    static constexpr char kK_GPS_TM[] = "Exif.GPSInfo.GPSTimeStamp";
+    static constexpr char kK_SUBJ_DIST[] = "Exif.Photo.SubjectDistance";
+    static constexpr char kK_ISO[] = "Exif.Photo.ISOSpeedRatings";
+    static constexpr char kK_APERTURE[] = "Exif.Photo.ApertureValue";
+    static constexpr char kK_SHUTTER_SPEED[] = "Exif.Photo.ShutterSpeedValue";
+    static constexpr char kK_EXPOSURE_TM[] = "Exif.Photo.ExposureTime";
+    static constexpr char kK_FOCAL_LENGTH[] = "Exif.Photo.FocalLength";
+
+} // namespace
+
 // Get string value from an ExifData::iterator for a given key:
 //
 // - if the key is not found, return std::nullopt
@@ -183,67 +208,79 @@ inline Exiv2::ExifData get_exif(const std::string &path) {
     return dat;
 }
 
-Exif::Attrs Exif::GetAttrs(const std::string &path) {
-    Exif::Attrs attrs = Exif::DEFAULT_ATTRS;
-    attrs.path = path;
+// Returns the ExifAttributes structure containing the desired EXIF attributes.
+//
+// Throws a runtime_error if:
+// - the image can't be opened
+// - the image doesn't contain Exif data
+// - any other error occurs during processing
+//
+// Args:
+//   path: The path to the image.
+//
+// Returns:
+//   ExifAttributes containing the desired EXIF attributes.
+//
+// Throws:
+//   std::runtime_error if any error occurs.
+Exif::Attrs::Attrs(const std::string &path)
+    : path(path), exif_ver(std::nullopt), model(std::nullopt),
+      desc(std::nullopt), height(std::nullopt), width(std::nullopt),
+      lat(std::nullopt), lon(std::nullopt), altitude(std::nullopt),
+      ts_gps(std::nullopt), coc(std::nullopt), exposure_time(std::nullopt),
+      iso(std::nullopt), shutter_speed(std::nullopt), aperture(std::nullopt),
+      subj_dist(std::nullopt), focal_length(std::nullopt),
+      hyperfocal_dist(std::nullopt) {
 
     Exiv2::ExifData dat = get_exif(path);
 
-    attrs.exif_ver = get_attr_str(dat, Exif::Exiv2Keys::EXIF_VER);
-    attrs.model = get_model(get_attr_str(dat, Exif::Exiv2Keys::MAKE),
-                            get_attr_str(dat, Exif::Exiv2Keys::MODEL));
-    attrs.desc = get_attr_str(dat, Exif::Exiv2Keys::DESC);
-    attrs.height = to_int(get_attr_str(dat, Exif::Exiv2Keys::HEIGHT));
-    attrs.width = to_int(get_attr_str(dat, Exif::Exiv2Keys::WIDTH));
-    attrs.lat = get_coor(get_attr_str(dat, Exif::Exiv2Keys::LAT),
-                         get_attr_str(dat, Exif::Exiv2Keys::LAT_REF));
-    attrs.lon = get_coor(get_attr_str(dat, Exif::Exiv2Keys::LON),
-                         get_attr_str(dat, Exif::Exiv2Keys::LON_REF));
+    exif_ver = get_attr_str(dat, kK_EXIFVER);
+    model = get_model(get_attr_str(dat, kK_MAKE), get_attr_str(dat, kK_MODEL));
+    desc = get_attr_str(dat, kK_DESC);
+    height = to_int(get_attr_str(dat, kK_HEIGHT));
+    width = to_int(get_attr_str(dat, kK_WIDTH));
+    lat = get_coor(get_attr_str(dat, kK_LAT), get_attr_str(dat, kK_LAT_REF));
+    lon = get_coor(get_attr_str(dat, kK_LON), get_attr_str(dat, kK_LON_REF));
 
-    attrs.altitude = frac(get_attr_str(dat, Exif::Exiv2Keys::ALTITUDE));
-    attrs.ts_gps = get_gps_ts(get_attr_str(dat, Exif::Exiv2Keys::GPS_DATE),
-                              get_attr_str(dat, Exif::Exiv2Keys::GPS_TIME));
-    attrs.coc = get_coc_from_model(attrs.model);
-    attrs.exposure_time =
-        frac(get_attr_str(dat, Exif::Exiv2Keys::EXPOSURE_TIME));
-    attrs.iso = to_int(get_attr_str(dat, Exif::Exiv2Keys::ISO));
-    attrs.shutter_speed =
-        frac(get_attr_str(dat, Exif::Exiv2Keys::SHUTTER_SPEED));
-    attrs.aperture = frac(get_attr_str(dat, Exif::Exiv2Keys::APERTURE));
-    attrs.subj_dist = frac(get_attr_str(dat, Exif::Exiv2Keys::SUBJ_DIST));
-    attrs.focal_length = frac(get_attr_str(dat, Exif::Exiv2Keys::FOCAL_LENGTH));
-    attrs.hyperfocal_dist =
-        get_hyperfocal_dist(attrs.focal_length, attrs.aperture, attrs.coc);
-
-    return attrs;
+    altitude = frac(get_attr_str(dat, kK_ALTITUDE));
+    ts_gps =
+        get_gps_ts(get_attr_str(dat, kK_GPS_DT), get_attr_str(dat, kK_GPS_TM));
+    coc = get_coc_from_model(model);
+    exposure_time = frac(get_attr_str(dat, kK_EXPOSURE_TM));
+    iso = to_int(get_attr_str(dat, kK_ISO));
+    shutter_speed = frac(get_attr_str(dat, kK_SHUTTER_SPEED));
+    aperture = frac(get_attr_str(dat, kK_APERTURE));
+    subj_dist = frac(get_attr_str(dat, kK_SUBJ_DIST));
+    focal_length = frac(get_attr_str(dat, kK_FOCAL_LENGTH));
+    hyperfocal_dist = get_hyperfocal_dist(focal_length, aperture, coc);
 }
 
-void Exif::ListAllAttrs(const std::string &path) {
+void Exif::Attrs::Print() const {
+    std::cout << "Exif version: " << *exif_ver << std::endl;
+    std::cout << "Model: " << *model << std::endl;
+    std::cout << "Description: " << *desc << std::endl;
+    std::cout << "Height: " << *height << std::endl;
+    std::cout << "Width: " << *width << std::endl;
+    std::cout << "Latitude: " << *lat << std::endl;
+    std::cout << "Longitude: " << *lon << std::endl;
+    std::cout << "Altitude: " << *altitude << std::endl;
+    std::cout << "GPS timestamp: " << std::put_time(&*ts_gps, "%c %Z")
+              << std::endl;
+    std::cout << "Circle of confusion: " << *coc << std::endl;
+    std::cout << "Exposure time: " << *exposure_time << std::endl;
+    std::cout << "ISO: " << *iso << std::endl;
+    std::cout << "Shutter speed: " << *shutter_speed << std::endl;
+    std::cout << "Aperture: " << *aperture << std::endl;
+    std::cout << "Subject distance: " << *subj_dist << std::endl;
+    std::cout << "Focal length: " << *focal_length << std::endl;
+    std::cout << "Hyperfocal distance: " << *hyperfocal_dist << std::endl;
+}
+
+void const Exif::Attrs::ListAll(const std::string &path) {
     Exiv2::ExifData dat = get_exif(path);
 
     Exiv2::ExifData::const_iterator it = dat.begin();
     for (; it != dat.end(); ++it) {
         std::cout << it->key() << ": " << it->value().toString() << std::endl;
     }
-}
-
-void Exif::PrintAttrs(const Exif::Attrs &attrs) {
-    std::cout << "Exif version: " << *attrs.exif_ver << std::endl;
-    std::cout << "Model: " << *attrs.model << std::endl;
-    std::cout << "Description: " << *attrs.desc << std::endl;
-    std::cout << "Height: " << *attrs.height << std::endl;
-    std::cout << "Width: " << *attrs.width << std::endl;
-    std::cout << "Latitude: " << *attrs.lat << std::endl;
-    std::cout << "Longitude: " << *attrs.lon << std::endl;
-    std::cout << "Altitude: " << *attrs.altitude << std::endl;
-    std::cout << "GPS timestamp: " << std::put_time(&*attrs.ts_gps, "%c %Z")
-              << std::endl;
-    std::cout << "Circle of confusion: " << *attrs.coc << std::endl;
-    std::cout << "Exposure time: " << *attrs.exposure_time << std::endl;
-    std::cout << "ISO: " << *attrs.iso << std::endl;
-    std::cout << "Shutter speed: " << *attrs.shutter_speed << std::endl;
-    std::cout << "Aperture: " << *attrs.aperture << std::endl;
-    std::cout << "Subject distance: " << *attrs.subj_dist << std::endl;
-    std::cout << "Focal length: " << *attrs.focal_length << std::endl;
-    std::cout << "Hyperfocal distance: " << *attrs.hyperfocal_dist << std::endl;
 }

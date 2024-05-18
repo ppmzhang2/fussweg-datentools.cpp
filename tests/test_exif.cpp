@@ -7,7 +7,7 @@
 TEST(ExifErrorTests, TestGetExifAttrsInvalidPath) {
     const std::string invalid_path = "invalid_image_path.jpg";
     try {
-        Exif::GetAttrs(invalid_path);
+        auto attrs = Exif::Attrs(invalid_path);
         FAIL() << "Expected std::runtime_error";
     } catch (const std::runtime_error &err) {
         EXPECT_EQ(
