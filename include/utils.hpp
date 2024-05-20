@@ -1,8 +1,11 @@
 #pragma once
 
+#include <algorithm>
 #include <fstream>
 #include <string>
 #include <vector>
+
+#define MAX2(x, y) ((x) > (y) ? (x) : (y))
 
 typedef std::vector<std::string> Paths;
 
