@@ -12,13 +12,217 @@
 using namespace fdt;
 
 namespace {
-    // thickness of the bounding box
+    // Fault-related constants
+    inline static constexpr uint8_t kNFaultLevel = 3;
+    inline static constexpr std::array<const char *, kNFaultLevel + 1>
+        kArrLevelStr = {"", "fair", "poor", "verypoor"};
+    inline static constexpr uint8_t kNFaultType = 7;
+    inline static constexpr std::array<const char *, kNFaultType> kArrTypeStr =
+        {"bump",       "crack",  "depression", "displacement",
+         "vegetation", "uneven", "pothole"};
+    inline static constexpr uint8_t kNFault = 21;
+
+    // Define the FaultType enum class
+    enum class FaultType : uint8_t {
+        NONE = 0,
+        BUMP,
+        CRACK,
+        DEPRESSION,
+        DISPLACEMENT,
+        VEGETATION,
+        UNEVEN,
+        POTHOLE,
+    };
+
+    // Define the FaultLevel enum class
+    enum class FaultLevel : uint8_t {
+        NONE = 0,
+        FAIR = 1,
+        POOR = 2,
+        VPOOR = 3,
+    };
+
+    static const std::unordered_map<std::string, FaultType> kMapType = {
+        {"bump", FaultType::BUMP},
+        {"crack", FaultType::CRACK},
+        {"depression", FaultType::DEPRESSION},
+        {"displacement", FaultType::DISPLACEMENT},
+        {"vegetation", FaultType::VEGETATION},
+        {"uneven", FaultType::UNEVEN},
+        {"pothole", FaultType::POTHOLE},
+    };
+
+    static const std::unordered_map<std::string, FaultLevel> kMapLevel = {
+        {"fair", FaultLevel::FAIR},
+        {"poor", FaultLevel::POOR},
+        {"verypoor", FaultLevel::VPOOR},
+    };
+
+    // Bounding Box-related constants
     static constexpr int kThick = 5;
     static constexpr int kFontFace = cv::FONT_HERSHEY_SIMPLEX;
     static constexpr double kFontScale = 2.5;
     static const cv::Scalar kTxtColor(255, 255, 255); // White
     static const cv::Scalar kLineColor(0, 255, 0);    // Green
+
 } // namespace
+
+// Function to set a Fault based on input type and level
+static inline void set_fault(annot::Fault &fault, FaultType type,
+                             FaultLevel level) {
+    uint8_t ind_type = static_cast<uint8_t>(type);
+    uint8_t ind_level = static_cast<uint8_t>(level);
+    fault |= static_cast<annot::Fault>(ind_level << (2 * (ind_type - 1)));
+}
+
+// Type-wise OR operator for Fault enum class to get the maximum level of
+// distress
+// TODO: revision and test
+static inline annot::Fault or_fault(annot::Fault lhs, annot::Fault rhs) {
+    uint16_t result = 0;
+    for (int i = 0; i < kNFaultType; i++) {
+        uint8_t cond_lhs = (static_cast<uint16_t>(lhs) >> (i * 2)) & 0b11;
+        uint8_t cond_rhs = (static_cast<uint16_t>(rhs) >> (i * 2)) & 0b11;
+        uint8_t cond = cond_lhs | cond_rhs;
+        result |= (cond << (i * 2));
+    }
+    return static_cast<annot::Fault>(result);
+}
+
+static inline const std::string faulttype2str(uint8_t type) {
+    try {
+        return kArrTypeStr.at(type);
+    } catch (const std::out_of_range &e) {
+        return "";
+    }
+}
+
+// Convert distress level to string
+static inline const std::string faultlevel2str(uint8_t level) {
+    try {
+        return kArrLevelStr.at(level);
+    } catch (const std::out_of_range &e) {
+        return "";
+    }
+}
+
+// Convert Fault to string
+const std::string annot::fault2str(annot::Fault fault) {
+    std::string res;
+    for (int ind_type = 0; ind_type < kNFaultType; ind_type++) {
+        uint8_t ind_level =
+            (static_cast<uint16_t>(fault) >> (ind_type * 2)) & 0b11;
+        if (ind_level != 0) {
+            if (!res.empty())
+                res += "_";
+            res += faulttype2str(ind_type) + "_" + faultlevel2str(ind_level);
+        }
+    }
+    return res;
+}
+
+static inline std::array<uint8_t, kNFault> fault2count(annot::Fault fault) {
+    std::array<uint8_t, kNFault> arr = {0};
+    for (int idx_type = 0; idx_type < kNFaultType; ++idx_type) {
+        uint8_t idx_level =
+            (static_cast<uint16_t>(fault) >> (idx_type * 2)) & 0b11;
+        if (idx_level != 0) {
+            int idx = idx_type * kNFaultLevel + (idx_level - 1);
+            arr[idx] = 1;
+        }
+    }
+    return arr;
+}
+
+// constructor
+annot::ImgFaultCount::ImgFaultCount()
+    : image(""), bump_fair(0), bump_poor(0), bump_verypoor(0), crack_fair(0),
+      crack_poor(0), crack_verypoor(0), depression_fair(0), depression_poor(0),
+      depression_verypoor(0), displacement_fair(0), displacement_poor(0),
+      displacement_verypoor(0), vegetation_fair(0), vegetation_poor(0),
+      vegetation_verypoor(0), uneven_fair(0), uneven_poor(0),
+      uneven_verypoor(0), pothole_fair(0), pothole_poor(0),
+      pothole_verypoor(0) {}
+
+// constructor with ImgBox
+annot::ImgFaultCount::ImgFaultCount(const ImgBox &ibox)
+    : image(ibox.image), bump_fair(0), bump_poor(0), bump_verypoor(0),
+      crack_fair(0), crack_poor(0), crack_verypoor(0), depression_fair(0),
+      depression_poor(0), depression_verypoor(0), displacement_fair(0),
+      displacement_poor(0), displacement_verypoor(0), vegetation_fair(0),
+      vegetation_poor(0), vegetation_verypoor(0), uneven_fair(0),
+      uneven_poor(0), uneven_verypoor(0), pothole_fair(0), pothole_poor(0),
+      pothole_verypoor(0) {
+    for (const auto &box : ibox.boxes) {
+        std::array<uint8_t, kNFault> arr = fault2count(box.fault);
+        bump_fair += arr[0];
+        bump_poor += arr[1];
+        bump_verypoor += arr[2];
+        crack_fair += arr[3];
+        crack_poor += arr[4];
+        crack_verypoor += arr[5];
+        depression_fair += arr[6];
+        depression_poor += arr[7];
+        depression_verypoor += arr[8];
+        displacement_fair += arr[9];
+        displacement_poor += arr[10];
+        displacement_verypoor += arr[11];
+        vegetation_fair += arr[12];
+        vegetation_poor += arr[13];
+        vegetation_verypoor += arr[14];
+        uneven_fair += arr[15];
+        uneven_poor += arr[16];
+        uneven_verypoor += arr[17];
+        pothole_fair += arr[18];
+        pothole_poor += arr[19];
+        pothole_verypoor += arr[20];
+    }
+}
+
+const std::string annot::ImgFaultCount::ToStr() const {
+    return image + "," + std::to_string(bump_fair) + "," +
+           std::to_string(bump_poor) + "," + std::to_string(bump_verypoor) +
+           "," + std::to_string(crack_fair) + "," + std::to_string(crack_poor) +
+           "," + std::to_string(crack_verypoor) + "," +
+           std::to_string(depression_fair) + "," +
+           std::to_string(depression_poor) + "," +
+           std::to_string(depression_verypoor) + "," +
+           std::to_string(displacement_fair) + "," +
+           std::to_string(displacement_poor) + "," +
+           std::to_string(displacement_verypoor) + "," +
+           std::to_string(vegetation_fair) + "," +
+           std::to_string(vegetation_poor) + "," +
+           std::to_string(vegetation_verypoor) + "," +
+           std::to_string(uneven_fair) + "," + std::to_string(uneven_poor) +
+           "," + std::to_string(uneven_verypoor) + "," +
+           std::to_string(pothole_fair) + "," + std::to_string(pothole_poor) +
+           "," + std::to_string(pothole_verypoor);
+}
+
+void annot::FaultStats::AddFault(const Fault &f) {
+    std::array<uint8_t, kNFault> arr = fault2count(f);
+    bump_fair += arr[0];
+    bump_poor += arr[1];
+    bump_verypoor += arr[2];
+    crack_fair += arr[3];
+    crack_poor += arr[4];
+    crack_verypoor += arr[5];
+    depression_fair += arr[6];
+    depression_poor += arr[7];
+    depression_verypoor += arr[8];
+    displacement_fair += arr[9];
+    displacement_poor += arr[10];
+    displacement_verypoor += arr[11];
+    vegetation_fair += arr[12];
+    vegetation_poor += arr[13];
+    vegetation_verypoor += arr[14];
+    uneven_fair += arr[15];
+    uneven_poor += arr[16];
+    uneven_verypoor += arr[17];
+    pothole_fair += arr[18];
+    pothole_poor += arr[19];
+    pothole_verypoor += arr[20];
+}
 
 // Parse CSV line
 //
@@ -139,17 +343,16 @@ static nlohmann::json read_json(std::istream &stream) {
 static annot::BoxArr json_to_box(const nlohmann::json &json) {
     annot::BoxArr boxes;
     for (auto &j : json) {
-        unsigned int cond = 0;
-        annot::Fault fault;
+        FaultLevel cond = FaultLevel::NONE;
+        FaultType type = FaultType::NONE;
+        annot::Fault fault = annot::Fault::NONE;
 
         // TODO: check if the key exists
         for (auto &c : j["region_attributes"]["condition"].items()) {
-            if (c.key() == "fair") {
-                cond = 1;
-            } else if (c.key() == "poor") {
-                cond = 2;
-            } else if (c.key() == "verypoor") {
-                cond = 3;
+            try {
+                cond = kMapLevel.at(c.key());
+            } catch (const std::out_of_range &e) {
+                continue;
             }
         }
 
@@ -157,22 +360,18 @@ static annot::BoxArr json_to_box(const nlohmann::json &json) {
         for (auto &f : j["region_attributes"]["fault"].items()) {
             if (f.value() == false) {
                 continue;
+            } else {
+                try {
+                    type = kMapType.at(f.key());
+                    set_fault(fault, type, cond);
+                } catch (const std::out_of_range &e) {
+                    continue;
+                }
             }
-            if (f.key() == "bump") {
-                fault.bump = cond;
-            } else if (f.key() == "crack") {
-                fault.crack = cond;
-            } else if (f.key() == "depression") {
-                fault.depression = cond;
-            } else if (f.key() == "displacement") {
-                fault.displacement = cond;
-            } else if (f.key() == "vegetation") {
-                fault.vegetation = cond;
-            } else if (f.key() == "uneven") {
-                fault.uneven = cond;
-            } else if (f.key() == "pothole") {
-                fault.pothole = cond;
-            }
+        }
+
+        if (fault == annot::Fault::NONE) {
+            continue;
         }
 
         annot::Box bx;
@@ -213,19 +412,6 @@ static annot::ImgBoxArr group_box(const annot::BoxArr &boxes) {
     return iboxes;
 }
 
-inline static annot::Fault combine(const annot::Fault &lhs,
-                                   const annot::Fault &rhs) {
-    annot::Fault c;
-    c.bump = MAX2(lhs.bump, rhs.bump);
-    c.crack = MAX2(lhs.crack, rhs.crack);
-    c.depression = MAX2(lhs.depression, rhs.depression);
-    c.displacement = MAX2(lhs.displacement, rhs.displacement);
-    c.vegetation = MAX2(lhs.vegetation, rhs.vegetation);
-    c.uneven = MAX2(lhs.uneven, rhs.uneven);
-    c.pothole = MAX2(lhs.pothole, rhs.pothole);
-    return c;
-}
-
 annot::ImgBoxArr annot::parseCsv(const std::string &path) {
     std::ifstream file(path);
     nlohmann::json json = read_csv(file);
@@ -244,7 +430,7 @@ annot::ImgBoxArr annot::parseJson(const std::string &path) {
 void annot::drawImgBox(const ImgBox &bbx, const std::string &src,
                        const std::string &dst) {
 
-    Fault fault_all; // for categorizing
+    Fault fault_img = Fault::NONE;
     std::filesystem::path dir_src(src);
     std::filesystem::path dir_dst(dst);
 
@@ -259,7 +445,7 @@ void annot::drawImgBox(const ImgBox &bbx, const std::string &src,
     // Step 2: Draw the Bounding Boxes
     for (const auto &bbx : bbx.boxes) {
         // get all faults for categorizing
-        fault_all = combine(fault_all, bbx.fault);
+        fault_img = or_fault(fault_img, bbx.fault);
 
         cv::Rect box(bbx.x, bbx.y, bbx.w, bbx.h);
         // Positioning the text above the box
@@ -267,12 +453,12 @@ void annot::drawImgBox(const ImgBox &bbx, const std::string &src,
         cv::rectangle(img, box, kLineColor, kThick);
 
         // Add text
-        std::string txt = bbx.fault.ToStr();
+        std::string txt = fault2str(bbx.fault);
         cv::putText(img, txt, txtOrg, kFontFace, kFontScale, kTxtColor, kThick);
     }
 
     // Step 3. Save the Image
-    if (!cv::imwrite(dir_dst / (fault_all.ToStr() + "_" + bbx.image), img)) {
+    if (!cv::imwrite(dir_dst / (fault2str(fault_img) + "_" + bbx.image), img)) {
         std::cerr << "Failed to save image" << std::endl;
     }
 }
@@ -315,8 +501,7 @@ void annot::exportStats(const std::string &dir_lab,
     for (const auto &f : fdt::utils::listAllFiles(dir_lab, ".csv")) {
         ImgBoxArr iboxes = annot::parseCsv(f);
         for (const auto &ibox : iboxes) {
-            FaultCount fc;
-            fc.FromBBox(ibox);
+            ImgFaultCount fc = ImgFaultCount(ibox);
             file << fc.ToStr() << "\n";
         }
     }
@@ -324,8 +509,7 @@ void annot::exportStats(const std::string &dir_lab,
     for (const auto &f : fdt::utils::listAllFiles(dir_lab, ".json")) {
         ImgBoxArr iboxes = annot::parseJson(f);
         for (const auto &ibox : iboxes) {
-            FaultCount fc;
-            fc.FromBBox(ibox);
+            ImgFaultCount fc = ImgFaultCount(ibox);
             file << fc.ToStr() << "\n";
         }
     }

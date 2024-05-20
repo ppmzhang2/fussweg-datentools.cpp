@@ -1,65 +1,63 @@
 #pragma once
 
+#include <array>
 #include <iostream>
 #include <vector>
-#define MAX2(x, y) ((x) > (y) ? (x) : (y))
+
+#include "utils.hpp"
 
 namespace fdt {
     namespace annot {
-        struct Fault {
-            unsigned int bump : 2;
-            unsigned int crack : 2;
-            unsigned int depression : 2;
-            unsigned int displacement : 2;
-            unsigned int vegetation : 2;
-            unsigned int uneven : 2;
-            unsigned int pothole : 2;
-            unsigned int padding : 2;
 
-            // Constructor
-            Fault()
-                : bump(0), crack(0), depression(0), displacement(0),
-                  vegetation(0), uneven(0), pothole(0), padding(0) {}
-
-            std::string ToStr() const {
-                const std::string faults[7] = {
-                    fault_to_str(bump, "bump"),
-                    fault_to_str(crack, "crack"),
-                    fault_to_str(depression, "depression"),
-                    fault_to_str(displacement, "displacement"),
-                    fault_to_str(vegetation, "vegetation"),
-                    fault_to_str(uneven, "uneven"),
-                    fault_to_str(pothole, "pothole"),
-
-                };
-                std::string res = "";
-                for (const auto &f : faults) {
-                    if (!f.empty() && res.empty()) {
-                        res = f;
-                    } else if (!f.empty()) {
-                        res += "_" + f;
-                    } else {
-                        continue;
-                    }
-                }
-                return res;
-            }
-
-          private:
-            std::string fault_to_str(unsigned int cond,
-                                     const std::string &fault) const {
-                switch (cond) {
-                case 1:
-                    return fault + "_fair";
-                case 2:
-                    return fault + "_poor";
-                case 3:
-                    return fault + "_verypoor";
-                default:
-                    return "";
-                }
-            }
+        // Define the Fault enum class with bitmask values
+        enum class Fault : uint16_t {
+            NONE = 0,
+            BUMP_FAIR = 0b01 << 0,
+            BUMP_POOR = 0b10 << 0,
+            BUMP_VPOOR = 0b11 << 0,
+            CRACK_FAIR = 0b01 << 2,
+            CRACK_POOR = 0b10 << 2,
+            CRACK_VPOOR = 0b11 << 2,
+            DEPRESSION_FAIR = 0b01 << 4,
+            DEPRESSION_POOR = 0b10 << 4,
+            DEPRESSION_VPOOR = 0b11 << 4,
+            DISPLACEMENT_FAIR = 0b01 << 6,
+            DISPLACEMENT_POOR = 0b10 << 6,
+            DISPLACEMENT_VPOOR = 0b11 << 6,
+            VEGETATION_FAIR = 0b01 << 8,
+            VEGETATION_POOR = 0b10 << 8,
+            VEGETATION_VPOOR = 0b11 << 8,
+            UNEVEN_FAIR = 0b01 << 10,
+            UNEVEN_POOR = 0b10 << 10,
+            UNEVEN_VPOOR = 0b11 << 10,
+            POTHOLE_FAIR = 0b01 << 12,
+            POTHOLE_POOR = 0b10 << 12,
+            POTHOLE_VPOOR = 0b11 << 12,
+            PADDING_FAIR = 0b01 << 14,
+            PADDING_POOR = 0b10 << 14,
+            PADDING_VPOOR = 0b11 << 14,
         };
+
+        // Define bitwise OR operator for Fault enum class
+        inline Fault operator|(Fault lhs, Fault rhs) {
+            return static_cast<Fault>(static_cast<uint16_t>(lhs) |
+                                      static_cast<uint16_t>(rhs));
+        }
+
+        // Define bitwise OR assignment operator for Fault enum class
+        inline Fault &operator|=(Fault &lhs, Fault rhs) {
+            lhs = lhs | rhs;
+            return lhs;
+        }
+
+        // Define bitwise AND operator for Fault enum class
+        inline Fault operator&(Fault lhs, Fault rhs) {
+            return static_cast<Fault>(static_cast<uint16_t>(lhs) &
+                                      static_cast<uint16_t>(rhs));
+        }
+
+        // Convert Fault to string
+        const std::string fault2str(Fault fault);
 
         struct Box {
             int x;
@@ -81,7 +79,7 @@ namespace fdt {
                 for (auto &bx : boxes) {
                     std::cout << "  " << bx.x << ", " << bx.y << ", " << bx.w
                               << ", " << bx.h << std::endl;
-                    std::cout << "    faults: " << bx.fault.ToStr()
+                    std::cout << "    faults: " << fault2str(bx.fault)
                               << std::endl;
                 }
             }
@@ -89,7 +87,7 @@ namespace fdt {
 
         using ImgBoxArr = std::vector<ImgBox>;
 
-        struct FaultCount {
+        struct ImgFaultCount {
             std::string image;
             uint8_t bump_fair;
             uint8_t bump_poor;
@@ -113,68 +111,11 @@ namespace fdt {
             uint8_t pothole_poor;
             uint8_t pothole_verypoor;
 
-            // constructor
-            FaultCount()
-                : image(""), bump_fair(0), bump_poor(0), bump_verypoor(0),
-                  crack_fair(0), crack_poor(0), crack_verypoor(0),
-                  depression_fair(0), depression_poor(0),
-                  depression_verypoor(0), displacement_fair(0),
-                  displacement_poor(0), displacement_verypoor(0),
-                  vegetation_fair(0), vegetation_poor(0),
-                  vegetation_verypoor(0), uneven_fair(0), uneven_poor(0),
-                  uneven_verypoor(0), pothole_fair(0), pothole_poor(0),
-                  pothole_verypoor(0) {}
+            ImgFaultCount();
 
-            void FromBBox(const ImgBox &bbox) {
-                image = bbox.image;
-                for (const auto &box : bbox.boxes) {
-                    bump_fair += box.fault.bump == 1;
-                    bump_poor += box.fault.bump == 2;
-                    bump_verypoor += box.fault.bump == 3;
-                    crack_fair += box.fault.crack == 1;
-                    crack_poor += box.fault.crack == 2;
-                    crack_verypoor += box.fault.crack == 3;
-                    depression_fair += box.fault.depression == 1;
-                    depression_poor += box.fault.depression == 2;
-                    depression_verypoor += box.fault.depression == 3;
-                    displacement_fair += box.fault.displacement == 1;
-                    displacement_poor += box.fault.displacement == 2;
-                    displacement_verypoor += box.fault.displacement == 3;
-                    vegetation_fair += box.fault.vegetation == 1;
-                    vegetation_poor += box.fault.vegetation == 2;
-                    vegetation_verypoor += box.fault.vegetation == 3;
-                    uneven_fair += box.fault.uneven == 1;
-                    uneven_poor += box.fault.uneven == 2;
-                    uneven_verypoor += box.fault.uneven == 3;
-                    pothole_fair += box.fault.pothole == 1;
-                    pothole_poor += box.fault.pothole == 2;
-                    pothole_verypoor += box.fault.pothole == 3;
-                }
-            }
+            ImgFaultCount(const ImgBox &ibox);
 
-            std::string ToStr() const {
-                return image + "," + std::to_string(bump_fair) + "," +
-                       std::to_string(bump_poor) + "," +
-                       std::to_string(bump_verypoor) + "," +
-                       std::to_string(crack_fair) + "," +
-                       std::to_string(crack_poor) + "," +
-                       std::to_string(crack_verypoor) + "," +
-                       std::to_string(depression_fair) + "," +
-                       std::to_string(depression_poor) + "," +
-                       std::to_string(depression_verypoor) + "," +
-                       std::to_string(displacement_fair) + "," +
-                       std::to_string(displacement_poor) + "," +
-                       std::to_string(displacement_verypoor) + "," +
-                       std::to_string(vegetation_fair) + "," +
-                       std::to_string(vegetation_poor) + "," +
-                       std::to_string(vegetation_verypoor) + "," +
-                       std::to_string(uneven_fair) + "," +
-                       std::to_string(uneven_poor) + "," +
-                       std::to_string(uneven_verypoor) + "," +
-                       std::to_string(pothole_fair) + "," +
-                       std::to_string(pothole_poor) + "," +
-                       std::to_string(pothole_verypoor);
-            }
+            const std::string ToStr() const;
         };
 
         struct FaultStats {
@@ -212,29 +153,7 @@ namespace fdt {
                   pothole_poor(0), pothole_verypoor(0) {}
 
             // add fault
-            void AddFault(const Fault &f) {
-                bump_fair += f.bump == 1;
-                bump_poor += f.bump == 2;
-                bump_verypoor += f.bump == 3;
-                crack_fair += f.crack == 1;
-                crack_poor += f.crack == 2;
-                crack_verypoor += f.crack == 3;
-                depression_fair += f.depression == 1;
-                depression_poor += f.depression == 2;
-                depression_verypoor += f.depression == 3;
-                displacement_fair += f.displacement == 1;
-                displacement_poor += f.displacement == 2;
-                displacement_verypoor += f.displacement == 3;
-                vegetation_fair += f.vegetation == 1;
-                vegetation_poor += f.vegetation == 2;
-                vegetation_verypoor += f.vegetation == 3;
-                uneven_fair += f.uneven == 1;
-                uneven_poor += f.uneven == 2;
-                uneven_verypoor += f.uneven == 3;
-                pothole_fair += f.pothole == 1;
-                pothole_poor += f.pothole == 2;
-                pothole_verypoor += f.pothole == 3;
-            }
+            void AddFault(const Fault &f);
 
             void Print() const {
                 std::cout << "bump_fair: " << bump_fair << std::endl;
@@ -287,4 +206,5 @@ namespace fdt {
         void printStats(const std::string &);
 
     } // namespace annot
+
 } // namespace fdt
