@@ -7,7 +7,18 @@
 #include <vector>
 
 #include "annot.hpp"
-#include "path_finder.hpp"
+#include "utils.hpp"
+
+using namespace fdt;
+
+namespace {
+    // thickness of the bounding box
+    static constexpr int kThick = 5;
+    static constexpr int kFontFace = cv::FONT_HERSHEY_SIMPLEX;
+    static constexpr double kFontScale = 2.5;
+    static const cv::Scalar kTxtColor(255, 255, 255); // White
+    static const cv::Scalar kLineColor(0, 255, 0);    // Green
+} // namespace
 
 // Parse CSV line
 //
@@ -125,11 +136,11 @@ static nlohmann::json read_json(std::istream &stream) {
     return json_array;
 }
 
-static std::vector<Box> json_to_box(const nlohmann::json &json) {
-    std::vector<Box> boxes;
+static annot::BoxArr json_to_box(const nlohmann::json &json) {
+    annot::BoxArr boxes;
     for (auto &j : json) {
         unsigned int cond = 0;
-        Fault fault;
+        annot::Fault fault;
 
         // TODO: check if the key exists
         for (auto &c : j["region_attributes"]["condition"].items()) {
@@ -164,7 +175,7 @@ static std::vector<Box> json_to_box(const nlohmann::json &json) {
             }
         }
 
-        Box bx;
+        annot::Box bx;
         bx.image = j["filename"];
         bx.x = j["region_shape_attributes"].value("x", -1);
         bx.y = j["region_shape_attributes"].value("y", -1);
@@ -177,8 +188,8 @@ static std::vector<Box> json_to_box(const nlohmann::json &json) {
     return boxes;
 }
 
-static std::vector<BBox> group_box(const std::vector<Box> &boxes) {
-    std::map<std::string, std::vector<Box>> img_map;
+static annot::ImgBoxArr group_box(const annot::BoxArr &boxes) {
+    std::map<std::string, annot::BoxArr> img_map;
 
     // Group the boxes by their image
     for (const auto &b : boxes) {
@@ -191,19 +202,20 @@ static std::vector<BBox> group_box(const std::vector<Box> &boxes) {
     }
 
     // Convert the map to a vector of Boxes
-    std::vector<BBox> bboxes;
+    annot::ImgBoxArr iboxes;
     for (const auto &pair : img_map) {
-        BBox bb;
+        annot::ImgBox bb;
         bb.image = pair.first;
         bb.boxes = pair.second;
-        bboxes.push_back(bb);
+        iboxes.push_back(bb);
     }
 
-    return bboxes;
+    return iboxes;
 }
 
-inline static Fault combine(const Fault &lhs, const Fault &rhs) {
-    Fault c;
+inline static annot::Fault combine(const annot::Fault &lhs,
+                                   const annot::Fault &rhs) {
+    annot::Fault c;
     c.bump = MAX2(lhs.bump, rhs.bump);
     c.crack = MAX2(lhs.crack, rhs.crack);
     c.depression = MAX2(lhs.depression, rhs.depression);
@@ -214,41 +226,23 @@ inline static Fault combine(const Fault &lhs, const Fault &rhs) {
     return c;
 }
 
-std::vector<BBox> Annot::CsvToBBox(const std::string &path) {
+annot::ImgBoxArr annot::parseCsv(const std::string &path) {
     std::ifstream file(path);
     nlohmann::json json = read_csv(file);
-    std::vector<BBox> bboxes = group_box(json_to_box(json));
-    return bboxes;
+    ImgBoxArr iboxes = group_box(json_to_box(json));
+    return iboxes;
 }
 
-std::vector<BBox> Annot::JsonToBBox(const std::string &path) {
+annot::ImgBoxArr annot::parseJson(const std::string &path) {
     std::ifstream file(path);
     nlohmann::json json = read_json(file);
-    std::vector<Box> boxes = json_to_box(json);
-    std::vector<BBox> bboxes = group_box(boxes);
-    return bboxes;
+    BoxArr boxes = json_to_box(json);
+    ImgBoxArr iboxes = group_box(boxes);
+    return iboxes;
 }
 
-void Annot::PrintBBox(const std::vector<BBox> &boxes) {
-    for (auto &bb : boxes) {
-        std::cout << bb.image << std::endl;
-        for (auto &bx : bb.boxes) {
-            std::cout << "  " << bx.x << ", " << bx.y << ", " << bx.w << ", "
-                      << bx.h << std::endl;
-            std::cout << "    faults: " << bx.fault.ToStr() << std::endl;
-        }
-    }
-}
-
-// thickness of the bounding box
-static constexpr int kThick = 5;
-static constexpr int kFontFace = cv::FONT_HERSHEY_SIMPLEX;
-static constexpr double kFontScale = 2.5;
-static const cv::Scalar kTxtColor(255, 255, 255); // White
-static const cv::Scalar kLineColor(0, 255, 0);    // Green
-
-void Annot::ImgWrite(const BBox &bbx, const std::string &src,
-                     const std::string &dst) {
+void annot::drawImgBox(const ImgBox &bbx, const std::string &src,
+                       const std::string &dst) {
 
     Fault fault_all; // for categorizing
     std::filesystem::path dir_src(src);
@@ -283,23 +277,23 @@ void Annot::ImgWrite(const BBox &bbx, const std::string &src,
     }
 }
 
-void Annot::DrawBox(const std::string &dir_lab, const std::string &src,
-                    const std::string &dst, const std::string &ext) {
-    std::vector<BBox> bboxes;
-    for (const auto &f : PathFinder::AllFiles(dir_lab, ext)) {
+void annot::drawImgBoxes(const std::string &dir_lab, const std::string &src,
+                         const std::string &dst, const std::string &ext) {
+    ImgBoxArr iboxes;
+    for (const auto &f : fdt::utils::listAllFiles(dir_lab, ext)) {
         // TODO: make it more elegant
         if (ext == ".csv") {
-            bboxes = Annot::CsvToBBox(f);
+            iboxes = annot::parseCsv(f);
         } else {
-            bboxes = Annot::JsonToBBox(f);
+            iboxes = annot::parseJson(f);
         }
-        for (auto &bbx : bboxes) {
-            Annot::ImgWrite(bbx, src, dst);
+        for (auto &ibox : iboxes) {
+            annot::drawImgBox(ibox, src, dst);
         }
     }
 }
 
-void Annot::ExportStats(const std::string &dir_lab,
+void annot::exportStats(const std::string &dir_lab,
                         const std::string &filename) {
     // Create an empty file
     std::ofstream file(filename, std::ios::out | std::ios::trunc);
@@ -318,47 +312,47 @@ void Annot::ExportStats(const std::string &dir_lab,
            "pothole_fair,pothole_poor,pothole_verypoor\n";
 
     // Loop through all CSV files
-    for (const auto &f : PathFinder::AllFiles(dir_lab, ".csv")) {
-        std::vector<BBox> bboxes = Annot::CsvToBBox(f);
-        for (const auto &bbx : bboxes) {
+    for (const auto &f : fdt::utils::listAllFiles(dir_lab, ".csv")) {
+        ImgBoxArr iboxes = annot::parseCsv(f);
+        for (const auto &ibox : iboxes) {
             FaultCount fc;
-            fc.FromBBox(bbx);
+            fc.FromBBox(ibox);
             file << fc.ToStr() << "\n";
         }
     }
     // Loop through all JSON files
-    for (const auto &f : PathFinder::AllFiles(dir_lab, ".json")) {
-        std::vector<BBox> bboxes = Annot::JsonToBBox(f);
-        for (const auto &bbx : bboxes) {
+    for (const auto &f : fdt::utils::listAllFiles(dir_lab, ".json")) {
+        ImgBoxArr iboxes = annot::parseJson(f);
+        for (const auto &ibox : iboxes) {
             FaultCount fc;
-            fc.FromBBox(bbx);
+            fc.FromBBox(ibox);
             file << fc.ToStr() << "\n";
         }
     }
 }
 
-void Annot::Stats(const std::string &dir_lab) {
+void annot::printStats(const std::string &dir_lab) {
     FaultStats stats;
     unsigned int img_cnt = 0;
     // Loop through all CSV files
-    for (const auto &f : PathFinder::AllFiles(dir_lab, ".csv")) {
-        std::vector<BBox> bboxes = Annot::CsvToBBox(f);
-        for (auto &bbx : bboxes) {
-            for (auto &bx : bbx.boxes) {
+    for (const auto &f : fdt::utils::listAllFiles(dir_lab, ".csv")) {
+        ImgBoxArr iboxes = parseCsv(f);
+        for (auto &ibox : iboxes) {
+            for (auto &bx : ibox.boxes) {
                 stats.AddFault(bx.fault);
             }
         }
-        img_cnt += bboxes.size();
+        img_cnt += iboxes.size();
     }
     // Loop through all JSON files
-    for (const auto &f : PathFinder::AllFiles(dir_lab, ".json")) {
-        std::vector<BBox> bboxes = Annot::JsonToBBox(f);
-        for (auto &bbx : bboxes) {
-            for (auto &bx : bbx.boxes) {
+    for (const auto &f : fdt::utils::listAllFiles(dir_lab, ".json")) {
+        ImgBoxArr iboxes = parseJson(f);
+        for (auto &ibox : iboxes) {
+            for (auto &bx : ibox.boxes) {
                 stats.AddFault(bx.fault);
             }
         }
-        img_cnt += bboxes.size();
+        img_cnt += iboxes.size();
     }
     std::cout << "Total images: " << img_cnt << std::endl;
     stats.Print();
