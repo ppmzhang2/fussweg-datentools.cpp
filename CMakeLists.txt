@@ -15,15 +15,69 @@ set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -fuse-ld=lld")
 set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -fuse-ld=lld")
 set(CMAKE_MODULE_LINKER_FLAGS "${CMAKE_MODULE_LINKER_FLAGS} -fuse-ld=lld")
 
+# -----------------------------------------------------------------------------
+# Main executable
+# -----------------------------------------------------------------------------
+# define sources and headers
+set(SOURCES
+    "${FusswegDatentools_SOURCE_DIR}/src/main.cpp"
+    "${FusswegDatentools_SOURCE_DIR}/src/annot.cpp"
+    "${FusswegDatentools_SOURCE_DIR}/src/cv.cpp"
+    "${FusswegDatentools_SOURCE_DIR}/src/exif.cpp"
+)
+set(HEADERS
+    "${FusswegDatentools_SOURCE_DIR}/include/annot.hpp"
+    "${FusswegDatentools_SOURCE_DIR}/include/cv.hpp"
+    "${FusswegDatentools_SOURCE_DIR}/include/exif.hpp"
+    "${FusswegDatentools_SOURCE_DIR}/include/utils.hpp"
+)
+
+# Create the executable
+add_executable(${PROJECT_NAME}
+    ${SOURCES}
+    ${HEADERS}
+)
+# Set the runtime output directory to be inside the build directory
+set_target_properties(${PROJECT_NAME} PROPERTIES
+    RUNTIME_OUTPUT_DIRECTORY "${FusswegDatentools_BINARY_DIR}/bin"
+)
+
+# Configure the file into the build directory
+configure_file(
+    "${FusswegDatentools_SOURCE_DIR}/include/config.h.in"
+    "${FusswegDatentools_BINARY_DIR}/include/config.h"
+)
+# Include directories
+target_include_directories(${PROJECT_NAME} PRIVATE
+    "${FusswegDatentools_SOURCE_DIR}/include"
+    "${FusswegDatentools_BINARY_DIR}/include" # Ensures config.h can be found
+)
+
+# -----------------------------------------------------------------------------
+# Tests
+# -----------------------------------------------------------------------------
+enable_testing()
+add_executable(FDTTest
+    "${FusswegDatentools_SOURCE_DIR}/tests/test_exif.cpp"
+    "${FusswegDatentools_SOURCE_DIR}/src/exif.cpp"
+)
+target_include_directories(FDTTest PRIVATE
+    "${FusswegDatentools_SOURCE_DIR}/include"
+    "${FusswegDatentools_BINARY_DIR}/include" # Ensures config.h can be found
+)
+add_test(NAME FDTTestSuite COMMAND FDTTest)
+
+# -----------------------------------------------------------------------------
 # Detect the operating system and architecture
+# -----------------------------------------------------------------------------
 if(CMAKE_SYSTEM_NAME STREQUAL "Darwin" AND
    CMAKE_SYSTEM_PROCESSOR STREQUAL "arm64")
     message(STATUS "Building for macOS arm64")
-    include("CMakeLists_osx.cmake")
+    include("./cmake/CMakeLists_osx.cmake")
 elseif(CMAKE_SYSTEM_NAME STREQUAL "Linux" AND
        CMAKE_SYSTEM_PROCESSOR STREQUAL "x86_64")
     message(STATUS "Building for Linux x86-64")
-    include("CMakeLists_x64.cmake")
+    include("./cmake/CMakeLists_x64.cmake")
 else()
     message(FATAL_ERROR
         "Unsupported operating system or architecture: ${CMAKE_SYSTEM_NAME} ${CMAKE_SYSTEM_PROCESSOR}")

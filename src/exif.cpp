@@ -3,6 +3,8 @@
 #include <iomanip>
 #include <iostream>
 
+using namespace fdt;
+
 // Contains the keys of the desired Exiv2 EXIF attributes.
 namespace {
 
@@ -33,7 +35,7 @@ namespace {
 // - if the key is not found, return std::nullopt
 // - if the key is found, return the string value with leading and trailing
 //   whitespaces removed
-inline Exif::OptStr get_attr_str(Exiv2::ExifData &dat, const std::string &key) {
+inline exif::OptStr get_attr_str(Exiv2::ExifData &dat, const std::string &key) {
     Exiv2::ExifData::iterator it = dat.findKey(Exiv2::ExifKey(key));
     if (it == dat.end()) {
         return std::nullopt;
@@ -64,7 +66,7 @@ inline double frac_den(const std::string &str) {
 // Compute a fraction from a string of the form "num/den"
 // @param str: the string to convert
 // @return: the double value
-inline double frac(Exif::OptStr str) {
+inline double frac(exif::OptStr str) {
     if (!str || str->empty()) {
         return 0;
     }
@@ -90,7 +92,7 @@ inline double frac(Exif::OptStr str) {
 // @param str: the optinal string to convert
 // @return: the double value
 // @throws std::runtime_error if the input is a null optional
-inline Exif::OptDbl get_coor(const Exif::OptStr &str, const Exif::OptStr &ref) {
+inline exif::OptDbl get_coor(const exif::OptStr &str, const exif::OptStr &ref) {
     if (!str) {
         return std::nullopt;
     }
@@ -114,15 +116,15 @@ inline Exif::OptDbl get_coor(const Exif::OptStr &str, const Exif::OptStr &ref) {
     return kCoor;
 }
 
-inline Exif::OptInt to_int(const Exif::OptStr &str) {
+inline exif::OptInt to_int(const exif::OptStr &str) {
     if (!str || str->empty()) {
         return std::nullopt;
     }
     return std::stoi(*str);
 }
 
-inline Exif::OptStr get_model(const Exif::OptStr &make,
-                              const Exif::OptStr &model) {
+inline exif::OptStr get_model(const exif::OptStr &make,
+                              const exif::OptStr &model) {
     if (!make || !model) {
         return std::nullopt;
     }
@@ -136,7 +138,7 @@ inline Exif::OptStr get_model(const Exif::OptStr &make,
 //
 // @param model: the camera model
 // @return: the circle of confusion
-inline Exif::OptDbl get_coc_from_model(const Exif::OptStr &model) {
+inline exif::OptDbl get_coc_from_model(const exif::OptStr &model) {
     if (model && (*model).substr(0, 12) == "GoPro HERO11") {
         return 0.005; // hardcoded for now
     }
@@ -150,8 +152,8 @@ inline Exif::OptDbl get_coc_from_model(const Exif::OptStr &model) {
 // @param n: the aperture / f-number
 // @param c: the circle of confusion
 // @return: the hyperfocal distance
-inline double get_hyperfocal_dist(Exif::OptDbl f, Exif::OptDbl n,
-                                  Exif::OptDbl c) {
+inline double get_hyperfocal_dist(exif::OptDbl f, exif::OptDbl n,
+                                  exif::OptDbl c) {
     if (!f || !n || !c) {
         return 0;
     }
@@ -163,8 +165,8 @@ inline double get_hyperfocal_dist(Exif::OptDbl f, Exif::OptDbl n,
 // @param ymd: the date string of the form "YYYY:MM:DD"
 // @param hms: the time string of the form "HH/1 MM/1 SS/1"
 // @return: the std::tm object
-inline Exif::OptTm get_gps_ts(const Exif::OptStr &ymd,
-                              const Exif::OptStr &hms) {
+inline exif::OptTm get_gps_ts(const exif::OptStr &ymd,
+                              const exif::OptStr &hms) {
     if (!ymd || !hms) {
         return std::nullopt;
     }
@@ -223,7 +225,7 @@ inline Exiv2::ExifData get_exif(const std::string &path) {
 //
 // Throws:
 //   std::runtime_error if any error occurs.
-Exif::Attrs::Attrs(const std::string &path)
+exif::Attrs::Attrs(const std::string &path)
     : path(""), exif_ver(std::nullopt), desc(std::nullopt), model(std::nullopt),
       height(std::nullopt), width(std::nullopt), lat(std::nullopt),
       lon(std::nullopt), altitude(std::nullopt), ts_gps(std::nullopt),
@@ -255,7 +257,7 @@ Exif::Attrs::Attrs(const std::string &path)
     hyperfocal_dist = get_hyperfocal_dist(focal_length, aperture, coc);
 }
 
-void Exif::Attrs::Print() const {
+void exif::Attrs::Print() const {
     std::cout << "Exif version: " << *exif_ver << std::endl;
     std::cout << "Model: " << *model << std::endl;
     std::cout << "Description: " << *desc << std::endl;
@@ -276,11 +278,67 @@ void Exif::Attrs::Print() const {
     std::cout << "Hyperfocal distance: " << *hyperfocal_dist << std::endl;
 }
 
-void Exif::Attrs::ListAll(const std::string &path) {
+void exif::Attrs::ListAll(const std::string &path) {
     Exiv2::ExifData dat = get_exif(path);
 
     Exiv2::ExifData::const_iterator it = dat.begin();
     for (; it != dat.end(); ++it) {
         std::cout << it->key() << ": " << it->value().toString() << std::endl;
     }
+}
+
+// Define a set of functions to assign values to JSON objects
+// based on the type of the value
+static inline void assign_to_json(nlohmann::json &j, const std::string &key,
+                                  const exif::OptStr &value) {
+    if (value) {
+        j[key] = *value;
+    }
+}
+
+static inline void assign_to_json(nlohmann::json &j, const std::string &key,
+                                  const exif::OptDbl &value) {
+    if (value) {
+        j[key] = *value;
+    }
+}
+
+static inline void assign_to_json(nlohmann::json &j, const std::string &key,
+                                  const exif::OptInt &value) {
+    if (value) {
+        j[key] = *value;
+    }
+}
+
+static inline void assign_to_json(nlohmann::json &j, const std::string &key,
+                                  const exif::OptTm &value) {
+    if (value) {
+        char buf[100];
+        strftime(buf, sizeof(buf), "%Y-%m-%dT%H:%M:%S", &(*value));
+        j[key] = std::string(buf);
+    }
+}
+
+const nlohmann::json exif::Attrs::ToJson() const {
+    nlohmann::json out;
+
+    // Define a list of serialization actions
+    std::vector<std::function<void()>> serActions = {
+        [&]() { assign_to_json(out, "path", path); },
+        [&]() { assign_to_json(out, "exif_ver", exif_ver); },
+        [&]() { assign_to_json(out, "desc", desc); },
+        [&]() { assign_to_json(out, "model", model); },
+        [&]() { assign_to_json(out, "height", height); },
+        [&]() { assign_to_json(out, "width", width); },
+        [&]() { assign_to_json(out, "lat", lat); },
+        [&]() { assign_to_json(out, "lon", lon); },
+        [&]() { assign_to_json(out, "altitude", altitude); },
+        [&]() { assign_to_json(out, "ts_gps", ts_gps); },
+    };
+
+    for (const auto &action : serActions) {
+        action(); // Execute the serialization action
+    }
+
+    return out;
 }

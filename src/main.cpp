@@ -2,21 +2,25 @@
 #include <fstream>
 #include <iomanip>
 #include <iostream>
-#include <nlohmann/json.hpp>
 
 #include "annot.hpp"
 #include "config.h"
-#include "exif_json.hpp"
-#include "optical_flow.hpp"
-#include "pov.hpp"
+#include "cv.hpp"
+#include "exif.hpp"
+#include "utils.hpp"
 
-void writeToFile(const std::string &out_file, const std::string &content) {
-    std::ofstream outFile(out_file);
-    if (!outFile) {
-        throw std::runtime_error("Unable to open for writing: " + out_file);
+nlohmann::json get_attrs_json(const std::string &content) {
+    nlohmann::json out;
+    nlohmann::json j;
+    fdt::exif::Attrs exif;
+
+    for (const auto &path : fdt::utils::listAllImages(content)) {
+        exif = fdt::exif::Attrs(path);
+        j = exif.ToJson();
+        out.push_back(j);
     }
-    outFile << content << std::endl;
-    outFile.close();
+
+    return out;
 }
 
 int parse_args(int argc, char *argv[]) {
@@ -64,15 +68,15 @@ int parse_args(int argc, char *argv[]) {
     if (op == "exif") {
         std::string dir_path = argv[2];
         std::string out_path = argv[3];
-        auto out = ExifJson::FromFiles(dir_path);
-        writeToFile(out_path, out.dump(4));
+        auto out = get_attrs_json(dir_path);
+        fdt::utils::writeFile(out_path, out.dump(4));
         return 0;
     }
     if (op == "displacement") {
         std::string dir_path = argv[2];
         std::string out_path = argv[3];
-        auto out = OpticalFlow::Displacement(dir_path);
-        writeToFile(out_path, out.dump(4));
+        auto out = fdt::cv::getOfDiffJson(dir_path);
+        fdt::utils::writeFile(out_path, out.dump(4));
         return 0;
     }
     if (op == "bbox-draw") {
@@ -86,18 +90,18 @@ int parse_args(int argc, char *argv[]) {
         } else {
             ext = ".csv";
         }
-        Annot::DrawBox(dir_lab, dir_src, dir_dst, ext);
+        fdt::annot::drawImgBoxes(dir_lab, dir_src, dir_dst, ext);
         return 0;
     }
     if (op == "bbox-export-stat") {
         std::string dir_lab = argv[2];
         std::string csv_file = argv[3];
-        Annot::ExportStats(dir_lab, csv_file);
+        fdt::annot::exportStats(dir_lab, csv_file);
         return 0;
     }
     if (op == "bbox-stat") {
         std::string dir_lab = argv[2];
-        Annot::Stats(dir_lab);
+        fdt::annot::printStats(dir_lab);
         return 0;
     }
     if (op == "pov-roi") {
@@ -122,26 +126,26 @@ int parse_args(int argc, char *argv[]) {
         double vp_s_br_x = std::strtol(argv[18], nullptr, 10);
         double vp_s_br_y = std::strtol(argv[19], nullptr, 10);
 
-        Quad roi = {
+        fdt::cv::Quad roi = {
             .tl = new cv::Point2d{0, 0},
             .tr = new cv::Point2d{0, 0},
             .br = new cv::Point2d{0, 0},
             .bl = new cv::Point2d{0, 0},
         };
 
-        Quad vert = {
+        fdt::cv::Quad vert = {
             .tl = new cv::Point2d{vp_t_tl_x, vp_t_tl_y},
             .tr = new cv::Point2d{vp_t_tr_x, vp_t_tr_y},
             .br = new cv::Point2d{vp_t_br_x, vp_t_br_y},
             .bl = new cv::Point2d{vp_t_bl_x, vp_t_bl_y},
         };
-        Quad horz = {
+        fdt::cv::Quad horz = {
             .tl = new cv::Point2d{vp_s_tl_x, vp_s_tl_y},
             .tr = new cv::Point2d{vp_s_tr_x, vp_s_tr_y},
             .br = new cv::Point2d{vp_s_br_x, vp_s_br_y},
             .bl = new cv::Point2d{vp_s_bl_x, vp_s_bl_y},
         };
-        PoV::get_roi(height, width, vert, horz, roi);
+        fdt::cv::getQuadRoi(height, width, vert, horz, roi);
         roi.print();
         return 0;
     }
@@ -160,13 +164,13 @@ int parse_args(int argc, char *argv[]) {
         const std::string dir_src = argv[12];
         const std::string dir_dst = argv[13];
 
-        const Quad roi = {
+        const fdt::cv::Quad roi = {
             .tl = new cv::Point2d{roi_tl_x, roi_tl_y},
             .tr = new cv::Point2d{roi_tr_x, roi_tr_y},
             .br = new cv::Point2d{roi_br_x, roi_br_y},
             .bl = new cv::Point2d{roi_bl_x, roi_bl_y},
         };
-        PoV::transform(roi, width, height, dir_src, dir_dst);
+        fdt::cv::transPerspe(roi, width, height, dir_src, dir_dst);
         return 0;
     }
     return 1;

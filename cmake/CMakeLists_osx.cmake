@@ -131,62 +131,6 @@ set(TEST_ALL_LIBS
 list(APPEND MAIN_ALL_LIBS ${OCV_ALL_LIBS})
 list(APPEND TEST_ALL_LIBS ${OCV_ALL_LIBS})
 
-# -----------------------------------------------------------------------------
-# Main executable
-# -----------------------------------------------------------------------------
-# define sources and headers
-set(SOURCES
-    "${FusswegDatentools_SOURCE_DIR}/src/main.cpp"
-    "${FusswegDatentools_SOURCE_DIR}/src/exif.cpp"
-    "${FusswegDatentools_SOURCE_DIR}/src/exif_json.cpp"
-    "${FusswegDatentools_SOURCE_DIR}/src/path_finder.cpp"
-    "${FusswegDatentools_SOURCE_DIR}/src/optical_flow.cpp"
-    "${FusswegDatentools_SOURCE_DIR}/src/pov.cpp"
-    "${FusswegDatentools_SOURCE_DIR}/src/annot.cpp"
-)
-set(HEADERS
-    "${FusswegDatentools_SOURCE_DIR}/include/exif.hpp"
-    "${FusswegDatentools_SOURCE_DIR}/include/exif_json.hpp"
-    "${FusswegDatentools_SOURCE_DIR}/include/path_finder.hpp"
-    "${FusswegDatentools_SOURCE_DIR}/include/optical_flow.hpp"
-    "${FusswegDatentools_SOURCE_DIR}/include/pov.hpp"
-    "${FusswegDatentools_SOURCE_DIR}/include/annot.hpp"
-)
-
-# Create the executable
-add_executable(${PROJECT_NAME}
-    ${SOURCES}
-    ${HEADERS}
-)
-# Set the runtime output directory to be inside the build directory
-set_target_properties(${PROJECT_NAME} PROPERTIES
-    RUNTIME_OUTPUT_DIRECTORY "${FusswegDatentools_BINARY_DIR}/bin"
-)
-
-# Configure the file into the build directory
-configure_file(
-    "${FusswegDatentools_SOURCE_DIR}/include/config.h.in"
-    "${FusswegDatentools_BINARY_DIR}/include/config.h"
-)
-# Include directories
-target_include_directories(FusswegDatentools PRIVATE
-    "${FusswegDatentools_SOURCE_DIR}/include"
-    "${FusswegDatentools_BINARY_DIR}/include" # Ensures config.h can be found
-)
 # Link libraries
 target_link_libraries(${PROJECT_NAME} PRIVATE ${MAIN_ALL_LIBS})
-
-# -----------------------------------------------------------------------------
-# Tests
-# -----------------------------------------------------------------------------
-enable_testing()
-add_executable(FDTTest
-    "${FusswegDatentools_SOURCE_DIR}/tests/test_exif.cpp"
-    "${FusswegDatentools_SOURCE_DIR}/src/exif.cpp"
-)
-target_include_directories(FDTTest PRIVATE
-    "${FusswegDatentools_SOURCE_DIR}/include"
-    "${FusswegDatentools_BINARY_DIR}/include" # Ensures config.h can be found
-)
 target_link_libraries(FDTTest PRIVATE ${TEST_ALL_LIBS})
-add_test(NAME FDTTestSuite COMMAND FDTTest)
