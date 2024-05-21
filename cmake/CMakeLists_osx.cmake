@@ -1,3 +1,7 @@
+set(CMAKE_OSX_DEPLOYMENT_TARGET "14.4" CACHE STRING "Minimum OS X deployment version")
+set(CMAKE_C_FLAGS "${CMAKE_CXX_FLAGS} -mmacosx-version-min=14.4")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -mmacosx-version-min=14.4")
+
 # -----------------------------------------------------------------------------
 # OpenCV
 # -----------------------------------------------------------------------------
@@ -69,42 +73,6 @@ find_library(LIBICONV NAMES iconv)
 # -----------------------------------------------------------------------------
 # Library List
 # -----------------------------------------------------------------------------
-set(OCV_ALL_LIBS)
-
-if(ILMIMF)
-    list(APPEND OCV_ALL_LIBS ${ILMIMF})
-endif()
-if(ITTNOTIFY)
-    list(APPEND OCV_ALL_LIBS ${ITTNOTIFY})
-endif()
-if(LIBJPEGTURBO)
-    list(APPEND OCV_ALL_LIBS ${LIBJPEGTURBO})
-endif()
-if(LIBOPENJP2)
-    list(APPEND OCV_ALL_LIBS ${LIBOPENJP2})
-endif()
-if(LIBTIFF)
-    list(APPEND OCV_ALL_LIBS ${LIBTIFF})
-endif()
-if(LIBWEBP)
-    list(APPEND OCV_ALL_LIBS ${LIBWEBP})
-endif()
-if(TEGRA_HAL)
-    list(APPEND OCV_ALL_LIBS ${TEGRA_HAL})
-endif()
-if(OPENCV_CORE)
-    list(APPEND OCV_ALL_LIBS ${OPENCV_CORE})
-endif()
-if(OPENCV_IMGCODECS)
-    list(APPEND OCV_ALL_LIBS ${OPENCV_IMGCODECS})
-endif()
-if(OPENCV_IMGPROC)
-    list(APPEND OCV_ALL_LIBS ${OPENCV_IMGPROC})
-endif()
-if(OPENCV_VIDEO)
-    list(APPEND OCV_ALL_LIBS ${OPENCV_VIDEO})
-endif()
-
 set(MAIN_ALL_LIBS
     "-framework OpenCL"
     "-framework Accelerate"
@@ -127,6 +95,13 @@ set(TEST_ALL_LIBS
     gtest
     gtest_main
 )
+set(OCV_ALL_LIBS)
+
+foreach(lib ILMIMF ITTNOTIFY LIBJPEGTURBO LIBOPENJP2 LIBTIFF LIBWEBP TEGRA_HAL OPENCV_CORE OPENCV_IMGCODECS OPENCV_IMGPROC OPENCV_VIDEO)
+    if(${lib})
+        list(APPEND OCV_ALL_LIBS ${${lib}})
+    endif()
+endforeach()
 
 list(APPEND MAIN_ALL_LIBS ${OCV_ALL_LIBS})
 list(APPEND TEST_ALL_LIBS ${OCV_ALL_LIBS})
