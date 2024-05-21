@@ -74,18 +74,33 @@ static inline void set_fault(annot::Fault &fault, FaultType type,
     fault |= static_cast<annot::Fault>(ind_level << (2 * (ind_type - 1)));
 }
 
-// Type-wise OR operator for Fault enum class to get the maximum level of
+// Type-wise MAX operator for Fault enum class to get the maximum level of
 // distress
-// TODO: revision and test
-static inline annot::Fault or_fault(annot::Fault lhs, annot::Fault rhs) {
-    uint16_t result = 0;
+static inline void max_fault(annot::Fault &lhs, annot::Fault rhs) {
     for (int i = 0; i < kNFaultType; i++) {
         uint8_t cond_lhs = (static_cast<uint16_t>(lhs) >> (i * 2)) & 0b11;
         uint8_t cond_rhs = (static_cast<uint16_t>(rhs) >> (i * 2)) & 0b11;
         uint8_t cond = MAX2(cond_lhs, cond_rhs);
-        result |= (cond << (i * 2));
+        lhs = static_cast<annot::Fault>(
+            (static_cast<uint16_t>(lhs) & ~(0b11 << (i * 2))) |
+            (cond << (i * 2)));
     }
-    return static_cast<annot::Fault>(result);
+}
+
+static inline constexpr FaultLevel str2faultlevel(const std::string &str) {
+    try {
+        return kMapLevel.at(str);
+    } catch (const std::out_of_range &e) {
+        return FaultLevel::NONE;
+    }
+}
+
+static inline constexpr FaultType str2faulttype(const std::string &str) {
+    try {
+        return kMapType.at(str);
+    } catch (const std::out_of_range &e) {
+        return FaultType::NONE;
+    }
 }
 
 static inline const std::string faulttype2str(uint8_t type) {
@@ -284,7 +299,7 @@ static std::vector<std::string> parse_csv_line(const std::string &line) {
     return result;
 }
 
-static nlohmann::json read_csv(std::istream &stream) {
+static nlohmann::json filecsv2json(std::istream &stream) {
     std::string line;
     getline(stream, line); // Read the header line
 
@@ -312,7 +327,7 @@ static nlohmann::json read_csv(std::istream &stream) {
     return jsonArray;
 }
 
-static nlohmann::json read_json(std::istream &stream) {
+static nlohmann::json filejson2json(std::istream &stream) {
     nlohmann::json json_raw, json_array;
     try {
         stream >> json_raw;
@@ -339,38 +354,64 @@ static nlohmann::json read_json(std::istream &stream) {
     return json_array;
 }
 
-static annot::BoxArr json_to_box(const nlohmann::json &json) {
+// Convert JSON to BoxArr
+//
+// Example JSON:
+//
+// - ["region_attributes"]["condition"]: {"fair": true}
+// - ["region_attributes"]["fault"]: {"crack": true}
+// - ["region_shape_attributes"]:
+//   {"x": 2744, "y": 390, "width": 86, "height": 503}
+//
+// Note:
+//
+// - Records contain missing keys; without explicit check, the program will
+//   crash.
+// - For each valid record, ["region_attributes"]["condition"], i.e. level, has
+//   at most one key-value pair. We only process the first item and discard the
+//   rest.
+// - ["region_attributes"]["fault"] may contain multiple valid key-value pairs.
+//   Add them all to one fault for one record.
+// - For all key-value pairs of both ["region_attributes"]["condition"] and
+//   ["region_attributes"]["fault"], ONLY KEYS MATTER. Valid values are always
+//   true, and thus they are IGNORED.
+static annot::BoxArr json2boxarr(const nlohmann::json &json) {
     annot::BoxArr boxes;
     for (auto &j : json) {
-        FaultLevel cond = FaultLevel::NONE;
-        FaultType type = FaultType::NONE;
-        annot::Fault fault = annot::Fault::NONE;
 
-        // TODO: check if the key exists
-        for (auto &c : j["region_attributes"]["condition"].items()) {
-            try {
-                cond = kMapLevel.at(c.key());
-            } catch (const std::out_of_range &e) {
-                continue;
-            }
+        // Skip record if
+        // - any required key is missing
+        // - any required field is empty
+        if (!j.contains("filename") || !j.contains("region_attributes") ||
+            !j.contains("region_shape_attributes")) {
+            continue;
+        } else if (!j["region_attributes"].contains("condition") ||
+                   !j["region_attributes"].contains("fault")) {
+            continue;
+        } else if (j["region_attributes"]["condition"].empty() ||
+                   j["region_attributes"]["fault"].empty()) {
+            continue;
         }
 
-        // TODO: check if the key exists
-        for (auto &f : j["region_attributes"]["fault"].items()) {
-            if (f.value() == false) {
+        annot::Fault fault = annot::Fault::NONE;
+        FaultType type = FaultType::NONE;
+
+        // Process only the first valid item in "condition"
+        auto level_it = j["region_attributes"]["condition"].items().begin();
+        FaultLevel level = str2faultlevel(level_it.key());
+        // Skip if the level is invalid
+        if (level == FaultLevel::NONE) {
+            continue;
+        }
+
+        // Loop to include all valid fault types
+        for (auto &type_it : j["region_attributes"]["fault"].items()) {
+            type = str2faulttype(type_it.key());
+            if (type == FaultType::NONE) {
                 continue;
             } else {
-                try {
-                    type = kMapType.at(f.key());
-                    set_fault(fault, type, cond);
-                } catch (const std::out_of_range &e) {
-                    continue;
-                }
+                set_fault(fault, type, level);
             }
-        }
-
-        if (fault == annot::Fault::NONE) {
-            continue;
         }
 
         annot::Box bx;
@@ -386,7 +427,7 @@ static annot::BoxArr json_to_box(const nlohmann::json &json) {
     return boxes;
 }
 
-static annot::ImgBoxArr group_box(const annot::BoxArr &boxes) {
+static annot::ImgBoxArr boxarr2imgboxarr(const annot::BoxArr &boxes) {
     std::map<std::string, annot::BoxArr> img_map;
 
     // Group the boxes by their image
@@ -413,17 +454,15 @@ static annot::ImgBoxArr group_box(const annot::BoxArr &boxes) {
 
 annot::ImgBoxArr annot::parseCsv(const std::string &path) {
     std::ifstream file(path);
-    nlohmann::json json = read_csv(file);
-    ImgBoxArr iboxes = group_box(json_to_box(json));
-    return iboxes;
+    nlohmann::json json = filecsv2json(file);
+    return boxarr2imgboxarr(json2boxarr(json));
 }
 
 annot::ImgBoxArr annot::parseJson(const std::string &path) {
     std::ifstream file(path);
-    nlohmann::json json = read_json(file);
-    BoxArr boxes = json_to_box(json);
-    ImgBoxArr iboxes = group_box(boxes);
-    return iboxes;
+    nlohmann::json json = filejson2json(file);
+    BoxArr boxes = json2boxarr(json);
+    return boxarr2imgboxarr(boxes);
 }
 
 void annot::drawImgBox(const ImgBox &bbx, const std::string &src,
@@ -444,7 +483,7 @@ void annot::drawImgBox(const ImgBox &bbx, const std::string &src,
     // Step 2: Draw the Bounding Boxes
     for (const auto &bbx : bbx.boxes) {
         // get all faults for categorizing
-        fault_img = or_fault(fault_img, bbx.fault);
+        max_fault(fault_img, bbx.fault);
 
         cv::Rect box(bbx.x, bbx.y, bbx.w, bbx.h);
         // Positioning the text above the box
