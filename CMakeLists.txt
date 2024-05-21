@@ -47,11 +47,6 @@ configure_file(
     "${FusswegDatentools_SOURCE_DIR}/include/config.h.in"
     "${FusswegDatentools_BINARY_DIR}/include/config.h"
 )
-# Include directories
-target_include_directories(${PROJECT_NAME} PRIVATE
-    "${FusswegDatentools_SOURCE_DIR}/include"
-    "${FusswegDatentools_BINARY_DIR}/include" # Ensures config.h can be found
-)
 
 # -----------------------------------------------------------------------------
 # Tests
@@ -60,10 +55,6 @@ enable_testing()
 add_executable(FDTTest
     "${FusswegDatentools_SOURCE_DIR}/tests/test_exif.cpp"
     "${FusswegDatentools_SOURCE_DIR}/src/exif.cpp"
-)
-target_include_directories(FDTTest PRIVATE
-    "${FusswegDatentools_SOURCE_DIR}/include"
-    "${FusswegDatentools_BINARY_DIR}/include" # Ensures config.h can be found
 )
 add_test(NAME FDTTestSuite COMMAND FDTTest)
 

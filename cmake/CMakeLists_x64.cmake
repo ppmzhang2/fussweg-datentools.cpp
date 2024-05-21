@@ -10,7 +10,33 @@
 
 # Link against libraries such as libdl, libc, etc.
 # TODO: maybe libc++ and libc++abi?
-link_directories(/usr/lib/x86_64-linux-gnu)
+# link_directories(/usr/lib/x86_64-linux-gnu)
+
+# -----------------------------------------------------------------------------
+# Static libraries
+#
+# This is a walkaround for library missing issue when executing the binary on
+# another machine due to the dynamic linking of glibc.
+# TODO: replace gcc with llvm counterpart
+#   - libgcc
+#   - libstdc++
+# -----------------------------------------------------------------------------
+set(CMAKE_EXE_LINKER_FLAGS
+    "${CMAKE_EXE_LINKER_FLAGS} -static-libgcc -static-libstdc++")
+set(CMAKE_SHARED_LINKER_FLAGS
+    "${CMAKE_SHARED_LINKER_FLAGS} -static-libgcc -static-libstdc++")
+set(CMAKE_MODULE_LINKER_FLAGS
+    "${CMAKE_MODULE_LINKER_FLAGS} -static-libgcc -static-libstdc++")
+
+set(CMAKE_FIND_LIBRARY_SUFFIXES ".a")
+set(BUILD_SHARED_LIBS OFF)
+
+set(LLVM_LIB_DIR "/usr/lib/x86_64-linux-gnu")
+set(GCC_LIB_DIR "/usr/lib/gcc/x86_64-linux-gnu/9")
+find_library(LIBC libc.a HINTS ${LLVM_LIB_DIR})
+find_library(LIBDL libdl.a HINTS ${LLVM_LIB_DIR})
+find_library(LIBSTDCPP libstdc++.a HINTS ${GCC_LIB_DIR})
+find_library(LIBGCC libgcc.a HINTS ${GCC_LIB_DIR})
 
 # -----------------------------------------------------------------------------
 # OpenCV
@@ -25,11 +51,6 @@ set(ZLIBNG_LIB_DIR ${ZLIBNG_DIR}/lib)
 set(PNG_DIR ${FusswegDatentools_SOURCE_DIR}/build_contrib/libpng-install)
 set(PNG_INC_DIR ${PNG_DIR}/include)
 set(PNG_LIB_DIR ${PNG_DIR}/lib)
-
-# Include directories
-include_directories(${OpenCV_INC_DIR})
-include_directories(${ZLIBNG_INC_DIR})
-include_directories(${PNG_INC_DIR})
 
 # Find the libraries
 find_library(ZLIBNG NAMES z HINTS ${ZLIBNG_LIB_DIR})
@@ -55,9 +76,6 @@ set(EXIV2_DIR ${FusswegDatentools_SOURCE_DIR}/build_contrib/exiv2-install)
 set(EXIV2_INC_DIR ${EXIV2_DIR}/include)
 set(EXIV2_LIB_DIR ${EXIV2_DIR}/lib)
 
-# Include directories
-include_directories(${EXIV2_INC_DIR})
-
 # Find the libraries
 find_library(EXIV2 NAMES exiv2 HINTS ${EXIV2_LIB_DIR})
 
@@ -65,6 +83,7 @@ find_library(EXIV2 NAMES exiv2 HINTS ${EXIV2_LIB_DIR})
 # nlohmann_json
 # -----------------------------------------------------------------------------
 set(JSON_SRC_DIR "${FusswegDatentools_SOURCE_DIR}/contrib/nlohmann_json")
+set(JSON_INC_DIR "${JSON_SRC_DIR}/include/nlohmann")
 set(JSON_BuildTests OFF CACHE INTERNAL "")
 
 add_subdirectory(${JSON_SRC_DIR})
@@ -82,55 +101,23 @@ find_package(Threads REQUIRED)
 # -----------------------------------------------------------------------------
 # Library List
 # -----------------------------------------------------------------------------
-set(OCV_ALL_LIBS)
-
-if(ILMIMF)
-    list(APPEND OCV_ALL_LIBS ${ILMIMF})
-endif()
-if(ITTNOTIFY)
-    list(APPEND OCV_ALL_LIBS ${ITTNOTIFY})
-endif()
-if(LIBJPEGTURBO)
-    list(APPEND OCV_ALL_LIBS ${LIBJPEGTURBO})
-endif()
-if(LIBOPENJP2)
-    list(APPEND OCV_ALL_LIBS ${LIBOPENJP2})
-endif()
-if(LIBTIFF)
-    list(APPEND OCV_ALL_LIBS ${LIBTIFF})
-endif()
-if(LIBWEBP)
-    list(APPEND OCV_ALL_LIBS ${LIBWEBP})
-endif()
-if(TEGRA_HAL)
-    list(APPEND OCV_ALL_LIBS ${TEGRA_HAL})
-endif()
-if(OPENCV_CORE)
-    list(APPEND OCV_ALL_LIBS ${OPENCV_CORE})
-endif()
-if(OPENCV_IMGCODECS)
-    list(APPEND OCV_ALL_LIBS ${OPENCV_IMGCODECS})
-endif()
-if(OPENCV_IMGPROC)
-    list(APPEND OCV_ALL_LIBS ${OPENCV_IMGPROC})
-endif()
-if(OPENCV_VIDEO)
-    list(APPEND OCV_ALL_LIBS ${OPENCV_VIDEO})
-endif()
-
 set(MAIN_ALL_LIBS
-    c
-    dl
     Threads::Threads
+    ${LIBC}
+    ${LIBDL}
+    ${LIBSTDCPP}
+    ${LIBGCC}
     ${ZLIBNG}
     ${PNG}
     ${EXIV2}
     nlohmann_json::nlohmann_json
 )
 set(TEST_ALL_LIBS
-    c
-    dl
     Threads::Threads
+    ${LIBC}
+    ${LIBDL}
+    ${LIBSTDCPP}
+    ${LIBGCC}
     ${ZLIBNG}
     ${PNG}
     ${EXIV2}
@@ -138,9 +125,35 @@ set(TEST_ALL_LIBS
     gtest
     gtest_main
 )
+set(OCV_ALL_LIBS)
+
+foreach(lib ILMIMF ITTNOTIFY LIBJPEGTURBO LIBOPENJP2 LIBTIFF LIBWEBP TEGRA_HAL OPENCV_CORE OPENCV_IMGCODECS OPENCV_IMGPROC OPENCV_VIDEO)
+    if(${lib})
+        list(APPEND OCV_ALL_LIBS ${${lib}})
+    endif()
+endforeach()
 
 list(APPEND MAIN_ALL_LIBS ${OCV_ALL_LIBS})
 list(APPEND TEST_ALL_LIBS ${OCV_ALL_LIBS})
+
+target_include_directories(${PROJECT_NAME} PRIVATE
+    ${OpenCV_INC_DIR}
+    ${ZLIBNG_INC_DIR}
+    ${PNG_INC_DIR}
+    ${EXIV2_INC_DIR}
+    ${JSON_INC_DIR}
+    "${FusswegDatentools_SOURCE_DIR}/include"
+    "${FusswegDatentools_BINARY_DIR}/include" # Ensures config.h can be found
+)
+target_include_directories(FDTTest PRIVATE
+    ${OpenCV_INC_DIR}
+    ${ZLIBNG_INC_DIR}
+    ${PNG_INC_DIR}
+    ${EXIV2_INC_DIR}
+    ${JSON_INC_DIR}
+    "${FusswegDatentools_SOURCE_DIR}/include"
+    "${FusswegDatentools_BINARY_DIR}/include" # Ensures config.h can be found
+)
 
 # Link libraries
 target_link_libraries(${PROJECT_NAME} PRIVATE ${MAIN_ALL_LIBS})
