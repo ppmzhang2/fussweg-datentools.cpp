@@ -13,6 +13,7 @@ concurrency:
 jobs:
   build_and_release:
     runs-on: ubuntu-22.04
+    timeout-minutes: 20
 
     steps:
     - name: Checkout code
@@ -49,8 +50,7 @@ jobs:
 
     - name: Run build script
       run: |
-        cmake --preset=ux-release
-        cmake --build --preset=ux-release-build
+        ./build.sh release
       env:
         CC: ${{ github.workspace }}/llvm/bin/clang
         CXX: ${{ github.workspace }}/llvm/bin/clang++

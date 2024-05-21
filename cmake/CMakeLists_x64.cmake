@@ -10,33 +10,7 @@
 
 # Link against libraries such as libdl, libc, etc.
 # TODO: maybe libc++ and libc++abi?
-# link_directories(/usr/lib/x86_64-linux-gnu)
-
-# -----------------------------------------------------------------------------
-# Static libraries
-#
-# This is a walkaround for library missing issue when executing the binary on
-# another machine due to the dynamic linking of glibc.
-# TODO: replace gcc with llvm counterpart
-#   - libgcc
-#   - libstdc++
-# -----------------------------------------------------------------------------
-set(CMAKE_EXE_LINKER_FLAGS
-    "${CMAKE_EXE_LINKER_FLAGS} -static-libgcc -static-libstdc++")
-set(CMAKE_SHARED_LINKER_FLAGS
-    "${CMAKE_SHARED_LINKER_FLAGS} -static-libgcc -static-libstdc++")
-set(CMAKE_MODULE_LINKER_FLAGS
-    "${CMAKE_MODULE_LINKER_FLAGS} -static-libgcc -static-libstdc++")
-
-set(CMAKE_FIND_LIBRARY_SUFFIXES ".a")
-set(BUILD_SHARED_LIBS OFF)
-
-set(LLVM_LIB_DIR "/usr/lib/x86_64-linux-gnu")
-set(GCC_LIB_DIR "/usr/lib/gcc/x86_64-linux-gnu/9")
-find_library(LIBC libc.a HINTS ${LLVM_LIB_DIR})
-find_library(LIBDL libdl.a HINTS ${LLVM_LIB_DIR})
-find_library(LIBSTDCPP libstdc++.a HINTS ${GCC_LIB_DIR})
-find_library(LIBGCC libgcc.a HINTS ${GCC_LIB_DIR})
+link_directories(/usr/lib/x86_64-linux-gnu)
 
 # -----------------------------------------------------------------------------
 # OpenCV
@@ -102,22 +76,18 @@ find_package(Threads REQUIRED)
 # Library List
 # -----------------------------------------------------------------------------
 set(MAIN_ALL_LIBS
+    c
+    dl
     Threads::Threads
-    ${LIBC}
-    ${LIBDL}
-    ${LIBSTDCPP}
-    ${LIBGCC}
     ${ZLIBNG}
     ${PNG}
     ${EXIV2}
     nlohmann_json::nlohmann_json
 )
 set(TEST_ALL_LIBS
+    c
+    dl
     Threads::Threads
-    ${LIBC}
-    ${LIBDL}
-    ${LIBSTDCPP}
-    ${LIBGCC}
     ${ZLIBNG}
     ${PNG}
     ${EXIV2}
