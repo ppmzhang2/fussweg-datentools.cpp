@@ -49,8 +49,7 @@ jobs:
 
     - name: Run build script
       run: |
-        cmake --preset=ux-release
-        cmake --build --preset=ux-release-build
+        ./bash.sh release
       env:
         CC: ${{ github.workspace }}/llvm/bin/clang
         CXX: ${{ github.workspace }}/llvm/bin/clang++
