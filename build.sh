@@ -32,6 +32,23 @@ if [ ! -d "$BUILD_DIR" ]; then
     mkdir "$BUILD_DIR"
 fi
 
+find_llvm_dir() {
+    for dir in /usr/lib/llvm-*; do
+        if [ -d "$dir" ]; then
+            echo "$dir"
+            return
+        fi
+    done
+    echo ""
+}
+
+# Add LLVM to the library path and link flags
+LLVM_DIR=$(find_llvm_dir)
+if [ -n "$LLVM_DIR" ]; then
+    export LD_LIBRARY_PATH="${LLVM_DIR}/lib:$LD_LIBRARY_PATH"
+    export LDFLAGS="-L${LLVM_DIR}/lib"
+fi
+
 # Configure and build the project using the appropriate presets
 cmake --preset=$CONFIG_PRESET
 cmake --build --preset=$BUILD_PRESET

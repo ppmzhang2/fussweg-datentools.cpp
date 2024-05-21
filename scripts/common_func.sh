@@ -25,3 +25,18 @@ function make_clean_dir {
     rm -rf "${DIR}"
     mkdir -p "${DIR}"
 }
+
+# Function to find the LLVM installation directory
+#
+# Ensure existance of the following files (in case of LLVM 19):
+# - /usr/lib/llvm-19/lib/libLLVM.so.19.0
+# - /usr/lib/llvm-19/lib/libLLVM.so
+find_llvm_dir() {
+    for dir in /usr/lib/llvm-*; do
+        if [ -d "$dir" ]; then
+            echo "$dir"
+            return
+        fi
+    done
+    echo ""
+}

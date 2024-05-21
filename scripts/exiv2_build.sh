@@ -4,7 +4,7 @@
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 # Source common functions
-source "${SCRIPT_DIR}/common_func.sh"
+. "${SCRIPT_DIR}/common_func.sh"
 
 # Define the variables
 EXIV2_BUILD_DIR="${SCRIPT_DIR}/../build_contrib/exiv2-build"
@@ -13,6 +13,13 @@ EXIV2_SRC_DIR="${SCRIPT_DIR}/../contrib/exiv2"
 CMAKE_COMMAND=cmake
 NUM_CORES=$(get_num_cores)
 
+# Add LLVM to the library path and link flags
+LLVM_DIR=$(find_llvm_dir)
+if [ -n "$LLVM_DIR" ]; then
+    export LD_LIBRARY_PATH="${LLVM_DIR}/lib:$LD_LIBRARY_PATH"
+    export LDFLAGS="-L${LLVM_DIR}/lib"
+fi
+
 # Create and clean directories
 make_clean_dir "${EXIV2_BUILD_DIR}"
 make_clean_dir "${EXIV2_INSTALL_DIR}"
@@ -20,7 +27,6 @@ make_clean_dir "${EXIV2_INSTALL_DIR}"
 # Configure Exiv2
 # Compiler and Build Configuration
 CMAKE_OPTIONS=(
-    -DCMAKE_OSX_DEPLOYMENT_TARGET=14.4            # OSX dev target version
     -DCMAKE_BUILD_TYPE=Release                    # Build type
     -DCMAKE_EXPORT_COMPILE_COMMANDS=ON            # Export for tooling
     -DCMAKE_CXX_STANDARD=17                       # Required by Exiv2
@@ -29,8 +35,6 @@ CMAKE_OPTIONS=(
     -DCMAKE_CXX_COMPILER="${CXX}"                 # C++ compiler
     -DCMAKE_LINKER="${LD}"                        # Linker
     -DCMAKE_INSTALL_PREFIX="${EXIV2_INSTALL_DIR}" # Installation directory
-    -DCMAKE_CXX_FLAGS="-mmacosx-version-min=14.4" # Min macOS version for C++
-    -DCMAKE_C_FLAGS="-mmacosx-version-min=14.4"   # Min macOS version for C
     -DBUILD_SHARED_LIBS=OFF                       # Build static library
     -DEXIV2_ENABLE_INIH=OFF                       # NO need to install inih
     -DEXIV2_ENABLE_BROTLI=OFF                     # NO need to install brotli
@@ -40,6 +44,14 @@ CMAKE_OPTIONS=(
     -S "${EXIV2_SRC_DIR}"
     -B "${EXIV2_BUILD_DIR}"
 )
+
+if [[ "$(uname)" == "Darwin" ]] && [[ $(uname -m) == "arm64" ]]; then
+  CMAKE_OPTIONS+=(
+    -DCMAKE_OSX_DEPLOYMENT_TARGET=14.4            # OSX dev target version
+    -DCMAKE_CXX_FLAGS="-mmacosx-version-min=14.4" # Min macOS version for C++
+    -DCMAKE_C_FLAGS="-mmacosx-version-min=14.4"   # Min macOS version for C
+  )
+fi
 
 # Print the CMake command and options
 echo "Configuring Exiv2 with the following options:"
