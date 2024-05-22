@@ -53,8 +53,9 @@ configure_file(
 # -----------------------------------------------------------------------------
 enable_testing()
 add_executable(FDTTest
-    "${FusswegDatentools_SOURCE_DIR}/tests/test_exif.cpp"
+    "${FusswegDatentools_SOURCE_DIR}/src/annot.cpp"
     "${FusswegDatentools_SOURCE_DIR}/src/exif.cpp"
+    "${FusswegDatentools_SOURCE_DIR}/tests/test_main.cpp"
 )
 add_test(NAME FDTTestSuite COMMAND FDTTest)
 
