@@ -4,46 +4,64 @@ Footpath image data processing tools.
 
 ## Setting Up the Development Environment
 
-### Using the vcpkg submodule
+The project now manages all third-party dependencies using git submodules. This
+includes `exiv2`, `nlohmann_json`, `googletest`, `opencv`, and the dependencies
+of `opencv` (`zlib-ng` and `libpng`). All of these reside in the `contrib` folder.
 
-The project now utilizes `vcpkg` as a submodule to manage dependencies.
-To ensure a smooth development process, follow these steps:
+### Cloning the Repository with Submodules
 
-1. **Clone the repository with submodules**:
+To fetch the repository alone, use the following command:
 
-   If you're cloning the project for the first time, use the following command
-   to fetch the repository along with the `vcpkg` submodule:
+```bash
+git clone https://github.com/ppmzhang2/fussweg-datentools.cpp
+```
 
-   ```bash
-   git clone --recurse-submodules https://github.com/ppmzhang2/fussweg-datentools.cpp
-   ```
+If you've already cloned the project and need to update or initialize the
+submodules, navigate to the project's root directory and run:
 
-   If you've already cloned the project and just want to update or initialize
-   the vcpkg submodule, navigate to the project's root directory and run:
+```bash
+git submodule update --depth 1 --recursive --init
+```
 
-   ```bash
-   git submodule update --init --recursive
-   ```
+### Compiling Dependencies
 
-2. **Bootstrap `vcpkg`**:
+To compile the project, first compile the contribs. Run the following commands
+sequentially:
 
-   Run the following command from the project's root directory:
+```bash
+./scripts/zlibng_build.sh
+./scripts/libpng_build.sh
+./scripts/exiv2_build.sh
+./scripts/opencv_build.sh
+```
 
-   ```bash
-   ./vcpkg/bootstrap-vcpkg.sh
-   ```
+Then, compile the project using the `build.sh` script with either the `debug`
+or `release` option:
 
-   This will build the `vcpkg` executable and place it in the `vcpkg` directory.
+```bash
+./build.sh [debug|release]
+```
+
+## Modules
+
+The program includes three main modules:
+
+1. `fdt::exif`: For handling EXIF data, such as extracting EXIF data from images.
+2. `fdt::annot`: For annotation-related tasks, such as drawing bounding boxes on
+  images based on annotations and calculating pavement distress statistics
+  according to annotations.
+3. `fdt::cv`: For computer vision tasks, including the perspective transformation
+  example and calculating optical flow differences between image pairs.
 
 ## Usage
 
 ### Perspective Transformation
 
 Find the perspective transformation matrix by providing the width and height,
-and eight points in the source image, which will determine two vanishing points.
-The program will further calculate the quadrilateral region of interest (ROI)
-by joining the vanishing points with the four apexes of the source image, and
-returning the intersections of the lines.
+and eight points in the source image, which will determine two vanishing
+points. The program will further calculate the quadrilateral region of interest
+(ROI) by joining the vanishing points with the four apexes of the source image,
+and returning the intersections of the lines.
 
 ```bash
 FusswegDatentools pov-roi 5568 4872 \
