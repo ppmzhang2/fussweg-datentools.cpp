@@ -452,17 +452,51 @@ static annot::ImgBoxArr boxarr2imgboxarr(const annot::BoxArr &boxes) {
     return iboxes;
 }
 
-annot::ImgBoxArr annot::parseCsv(const std::string &path) {
-    std::ifstream file(path);
-    nlohmann::json json = filecsv2json(file);
-    return boxarr2imgboxarr(json2boxarr(json));
+// Parse CSV annotation file. Example CSV record (Box):
+//
+// - ["region_shape_attributes"]:
+//   {""name"":""rect"",""x"":1730,""y"":2613,""width"":737,""height"":577}
+// - ["region_attributes"]
+//   {""fault"":{""bump"":true,""crack"":true},""condition"":{""poor"":true}}
+annot::ImgBoxArr annot::parseCsv(std::istream &stream_i) {
+    const nlohmann::json json = filecsv2json(stream_i);
+    const BoxArr bx_arr = json2boxarr(json);
+    const ImgBoxArr ibx_arr = boxarr2imgboxarr(bx_arr);
+    return ibx_arr;
 }
 
-annot::ImgBoxArr annot::parseJson(const std::string &path) {
-    std::ifstream file(path);
-    nlohmann::json json = filejson2json(file);
-    BoxArr boxes = json2boxarr(json);
-    return boxarr2imgboxarr(boxes);
+// Parse JSON annotation file. Example JSON of one image (ImgBox):
+//
+// ```json
+// {
+//   "filename": "G0021000.JPG",
+//   "size": 3116288,
+//   "regions": [
+//     {
+//       "shape_attributes": {
+//         "name": "rect", "x": 1730, "y": 2613, "width": 737, "height": 577
+//       },
+//       "region_attributes": {
+//         "fault": { "pothole": true }, "condition": { "verypoor": true }
+//       }
+//     },
+//     {
+//       "shape_attributes": {
+//         "name": "rect", "x": 2211, "y": 1532, "width": 679, "height": 1014
+//       },
+//       "region_attributes": {
+//         "fault": { "crack": true }, "condition": { "poor": true }
+//       }
+//     }
+//   ],
+//   "file_attributes": {}
+// }
+// ```
+annot::ImgBoxArr annot::parseJson(std::istream &stream_i) {
+    const nlohmann::json json = filejson2json(stream_i);
+    const BoxArr bx_arr = json2boxarr(json);
+    const ImgBoxArr ibx_arr = boxarr2imgboxarr(bx_arr);
+    return ibx_arr;
 }
 
 void annot::drawImgBox(const ImgBox &bbx, const std::string &src,
@@ -505,11 +539,15 @@ void annot::drawImgBoxes(const std::string &dir_lab, const std::string &src,
                          const std::string &dst, const std::string &ext) {
     ImgBoxArr iboxes;
     for (const auto &f : fdt::utils::listAllFiles(dir_lab, ext)) {
+        std::ifstream stream_if(f);
+        if (!stream_if.is_open()) {
+            throw std::runtime_error("Error: Could not open file " + f);
+        }
         // TODO: make it more elegant
         if (ext == ".csv") {
-            iboxes = annot::parseCsv(f);
+            iboxes = annot::parseCsv(stream_if);
         } else {
-            iboxes = annot::parseJson(f);
+            iboxes = annot::parseJson(stream_if);
         }
         for (auto &ibox : iboxes) {
             annot::drawImgBox(ibox, src, dst);
@@ -537,17 +575,19 @@ void annot::exportStats(const std::string &dir_lab,
 
     // Loop through all CSV files
     for (const auto &f : fdt::utils::listAllFiles(dir_lab, ".csv")) {
-        ImgBoxArr iboxes = annot::parseCsv(f);
-        for (const auto &ibox : iboxes) {
-            ImgFaultCount fc = ImgFaultCount(ibox);
+        std::ifstream stream_if(f);
+        ImgBoxArr ibx_arr = annot::parseCsv(stream_if);
+        for (const auto &ibx : ibx_arr) {
+            ImgFaultCount fc = ImgFaultCount(ibx);
             file << fc.ToStr() << "\n";
         }
     }
     // Loop through all JSON files
     for (const auto &f : fdt::utils::listAllFiles(dir_lab, ".json")) {
-        ImgBoxArr iboxes = annot::parseJson(f);
-        for (const auto &ibox : iboxes) {
-            ImgFaultCount fc = ImgFaultCount(ibox);
+        std::ifstream stream_if(f);
+        ImgBoxArr ibx_arr = annot::parseJson(stream_if);
+        for (const auto &ibx : ibx_arr) {
+            ImgFaultCount fc = ImgFaultCount(ibx);
             file << fc.ToStr() << "\n";
         }
     }
@@ -558,23 +598,25 @@ void annot::printStats(const std::string &dir_lab) {
     unsigned int img_cnt = 0;
     // Loop through all CSV files
     for (const auto &f : fdt::utils::listAllFiles(dir_lab, ".csv")) {
-        ImgBoxArr iboxes = parseCsv(f);
-        for (auto &ibox : iboxes) {
-            for (auto &bx : ibox.boxes) {
+        std::ifstream stream_if(f);
+        ImgBoxArr ibx_arr = parseCsv(stream_if);
+        for (auto &ibx : ibx_arr) {
+            for (auto &bx : ibx.boxes) {
                 stats.AddFault(bx.fault);
             }
         }
-        img_cnt += iboxes.size();
+        img_cnt += ibx_arr.size();
     }
     // Loop through all JSON files
     for (const auto &f : fdt::utils::listAllFiles(dir_lab, ".json")) {
-        ImgBoxArr iboxes = parseJson(f);
-        for (auto &ibox : iboxes) {
-            for (auto &bx : ibox.boxes) {
+        std::ifstream stream_if(f);
+        ImgBoxArr ibx_arr = parseJson(stream_if);
+        for (auto &ibx : ibx_arr) {
+            for (auto &bx : ibx.boxes) {
                 stats.AddFault(bx.fault);
             }
         }
-        img_cnt += iboxes.size();
+        img_cnt += ibx_arr.size();
     }
     std::cout << "Total images: " << img_cnt << std::endl;
     stats.Print();

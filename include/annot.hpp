@@ -188,9 +188,9 @@ namespace fdt {
             }
         };
 
-        ImgBoxArr parseCsv(const std::string &);
+        ImgBoxArr parseCsv(std::istream &);
 
-        ImgBoxArr parseJson(const std::string &);
+        ImgBoxArr parseJson(std::istream &);
 
         void drawImgBox(const ImgBox &, const std::string &,
                         const std::string &);

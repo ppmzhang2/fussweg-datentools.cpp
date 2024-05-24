@@ -196,13 +196,20 @@ inline exif::OptTm get_gps_ts(const exif::OptStr &ymd,
 // @throws std::runtime_error if the image cannot be opened or if no EXIF
 // data is found
 inline Exiv2::ExifData get_exif(const std::string &path) {
-    const Exiv2::Image::UniquePtr ptr_img = Exiv2::ImageFactory::open(path);
-    if (!ptr_img.get()) {
+    Exiv2::Image::UniquePtr ptr_img;
+
+    try {
+        ptr_img = Exiv2::ImageFactory::open(path);
+    } catch (const Exiv2::Error &e) {
+        throw std::runtime_error("Failed to open file: " + path);
+    }
+
+    if (!ptr_img) {
         throw std::runtime_error("Failed to open image: " + path);
     }
 
     ptr_img->readMetadata();
-    Exiv2::ExifData dat = ptr_img->exifData();
+    const Exiv2::ExifData &dat = ptr_img->exifData();
     if (dat.empty()) {
         throw std::runtime_error("No Exif data found in image: " + path);
     }
