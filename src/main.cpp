@@ -2,23 +2,10 @@
 
 #include "annot.hpp"
 #include "config.h"
+#include "crs.hpp"
 #include "cv.hpp"
 #include "exif.hpp"
 #include "utils.hpp"
-
-nlohmann::json get_attrs_json(const std::string &content) {
-    nlohmann::json out;
-    nlohmann::json j;
-    fdt::exif::Attrs exif;
-
-    for (const auto &path : fdt::utils::listAllImages(content)) {
-        exif = fdt::exif::Attrs(path);
-        j = exif.ToJson();
-        out.push_back(j);
-    }
-
-    return out;
-}
 
 int parse_args(int argc, char *argv[]) {
     if (argc <= 1) {
@@ -27,7 +14,9 @@ int parse_args(int argc, char *argv[]) {
                   << VERSION_PATCH << std::endl;
         std::cout << std::endl;
         std::cout << "Usage: " << std::endl;
-        std::cout << "  " << argv[0] << " exif <directory_path> "
+        std::cout << "  " << argv[0] << " exif-export-json <directory_path> "
+                  << "<output_file_path>" << std::endl;
+        std::cout << "  " << argv[0] << " exif-export-csv <directory_path> "
                   << "<output_file_path>" << std::endl;
         std::cout << "  " << argv[0] << " displacement <directory_path> "
                   << "<output_file_path>" << std::endl;
@@ -44,29 +33,45 @@ int parse_args(int argc, char *argv[]) {
                   << "    <roi_tl_x> <roi_tl_y> <roi_tr_x> <roi_tr_y> \\\n"
                   << "    <roi_br_x> <roi_br_y> <roi_bl_x> <roi_bl_y> \\\n"
                   << "    <dir_src> <dir_dst>" << std::endl;
+        std::cout << "  " << argv[0] << " crs-to-nzgd2000 <latitude> "
+                  << "<longitude>" << std::endl;
+        std::cout << "  " << argv[0] << " crs-from-nzgd2000 <easting> "
+                  << "<northing>" << std::endl;
         return 1;
     }
 
     std::string op = argv[1];
-    if (op != "exif" && op != "displacement" && op != "bbox-draw" &&
-        op != "bbox-export-stat" && op != "bbox-stat" && op != "pov-roi" &&
-        op != "pov-transform") {
-        throw std::runtime_error("Unknown operation. "
-                                 "Use 'exif', 'displacement', "
-                                 "'pov-roi' or 'pov-transform'.");
+    if (op != "exif-export-json" && op != "exif-export-csv" &&
+        op != "displacement" && op != "bbox-draw" && op != "bbox-export-stat" &&
+        op != "bbox-stat" && op != "pov-roi" && op != "pov-transform" &&
+        op != "crs-to-nzgd2000" && op != "crs-from-nzgd2000") {
+        throw std::runtime_error("Unknown operation. ");
     }
-    if ((op == "exif" && argc != 4) || (op == "displacement" && argc != 4) ||
+    if ((op == "exif-export-json" && argc != 4) ||
+        (op == "exif-export-csv" && argc != 4) ||
+        (op == "displacement" && argc != 4) ||
         (op == "bbox-draw" && argc != 6) || (op == "bbox-stat" && argc != 3) ||
         (op == "bbox-export-stat" && argc != 4) ||
         (op == "pov-roi" && argc != 20) ||
-        (op == "pov-transform" && argc != 14)) {
+        (op == "pov-transform" && argc != 14) ||
+        (op == "crs-to-nzgd2000" && argc != 4) ||
+        (op == "crs-from-nzgd2000" && argc != 4)) {
         throw std::runtime_error("Invalid number of arguments.");
     }
-    if (op == "exif") {
+    if (op == "exif-export-json") {
         std::string dir_path = argv[2];
         std::string out_path = argv[3];
-        auto out = get_attrs_json(dir_path);
-        fdt::utils::writeFile(out_path, out.dump(4));
+        std::ofstream out_file(out_path);
+        fdt::exif::exportJson(dir_path, out_file);
+        out_file.close();
+        return 0;
+    }
+    if (op == "exif-export-csv") {
+        std::string dir_path = argv[2];
+        std::string out_path = argv[3];
+        std::ofstream out_file(out_path);
+        fdt::exif::exportCsv(dir_path, out_file);
+        out_file.close();
         return 0;
     }
     if (op == "displacement") {
@@ -168,6 +173,20 @@ int parse_args(int argc, char *argv[]) {
             .bl = new cv::Point2d{roi_bl_x, roi_bl_y},
         };
         fdt::cv::transPerspe(roi, width, height, dir_src, dir_dst);
+        return 0;
+    }
+    if (op == "crs-to-nzgd2000") {
+        double lat = std::strtod(argv[2], nullptr);
+        double lon = std::strtod(argv[3], nullptr);
+        auto [e, n] = fdt::crs::ToNzgd2000(lat, lon);
+        std::cout << "Easting: " << e << ", Northing: " << n << std::endl;
+        return 0;
+    }
+    if (op == "crs-from-nzgd2000") {
+        double e = std::strtod(argv[2], nullptr);
+        double n = std::strtod(argv[3], nullptr);
+        auto [lat, lon] = fdt::crs::FromNzgd2000(e, n);
+        std::cout << "Latitude: " << lat << ", Longitude: " << lon << std::endl;
         return 0;
     }
     return 1;
