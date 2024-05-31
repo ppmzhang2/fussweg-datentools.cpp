@@ -363,7 +363,7 @@ static nlohmann::json filejson2json(std::istream &stream) {
 // - ["region_shape_attributes"]:
 //   {"x": 2744, "y": 390, "width": 86, "height": 503}
 //
-// Note:
+// NOTE:
 //
 // - Records contain missing keys; without explicit check, the program will
 //   crash.

@@ -1,7 +1,10 @@
-#include "exif.hpp"
 #include <cstring>
-#include <iomanip>
+#include <fstream>
 #include <iostream>
+
+#include "crs.hpp"
+#include "exif.hpp"
+#include "utils.hpp"
 
 using namespace fdt;
 
@@ -233,11 +236,11 @@ inline Exiv2::ExifData get_exif(const std::string &path) {
 // Throws:
 //   std::runtime_error if any error occurs.
 exif::Attrs::Attrs(const std::string &path)
-    : path(""), exif_ver(std::nullopt), desc(std::nullopt), model(std::nullopt),
-      height(std::nullopt), width(std::nullopt), lat(std::nullopt),
-      lon(std::nullopt), altitude(std::nullopt), ts_gps(std::nullopt),
-      coc(std::nullopt), subj_dist(std::nullopt), iso(std::nullopt),
-      aperture(std::nullopt), shutter_speed(std::nullopt),
+    : path(path), exif_ver(std::nullopt), desc(std::nullopt),
+      model(std::nullopt), height(std::nullopt), width(std::nullopt),
+      lat(std::nullopt), lon(std::nullopt), altitude(std::nullopt),
+      ts_gps(std::nullopt), coc(std::nullopt), subj_dist(std::nullopt),
+      iso(std::nullopt), aperture(std::nullopt), shutter_speed(std::nullopt),
       exposure_time(std::nullopt), focal_length(std::nullopt),
       hyperfocal_dist(std::nullopt) {
 
@@ -348,4 +351,91 @@ const nlohmann::json exif::Attrs::ToJson() const {
     }
 
     return out;
+}
+
+// NOTE: only for path (no other string attributes)
+static inline void to_ostream(std::ostream &ostream, const exif::OptStr &path,
+                              const std::string &sep = "") {
+    if (path) {
+        ostream << std::filesystem::path(*path).filename().string() << sep;
+    }
+}
+
+static inline void to_ostream(std::ostream &ostream, const exif::OptDbl &value,
+                              const std::string &sep = "") {
+    if (!value) {
+        ostream << sep;
+        return;
+    }
+    ostream << std::fixed << std::setprecision(6) << *value << sep;
+}
+
+static inline void to_ostream(std::ostream &ostream, const exif::OptInt &value,
+                              const std::string &sep = "") {
+    if (!value) {
+        ostream << sep;
+        return;
+    }
+    ostream << *value << sep;
+}
+
+static inline void to_ostream(std::ostream &ostream, const exif::OptTm &value,
+                              const std::string &sep = "") {
+    if (!value) {
+        ostream << sep;
+        return;
+    }
+    char buf[100];
+    strftime(buf, sizeof(buf), "%Y-%m-%dT%H:%M:%S", &(*value));
+    ostream << std::string(buf) << sep;
+}
+
+static inline void to_ostream(std::ostream &ostream, const exif::OptDbl &lat,
+                              const exif::OptDbl &lon,
+                              const std::string &sep = "") {
+    if (!lat || !lon) {
+        ostream << sep << sep << sep;
+        return;
+    }
+    auto [east, north] = crs::ToNzgd2000(*lat, *lon);
+    ostream << std::fixed << std::setprecision(6) << *lat << sep << *lon << sep
+            << east << sep << north;
+}
+
+void exif::Attrs::ToCsv(std::ostream &ostream) const {
+    // Define a list of serialization actions
+    std::vector<std::function<void()>> serActions = {
+        [&]() { to_ostream(ostream, path, "\t"); },
+        [&]() { to_ostream(ostream, height, "\t"); },
+        [&]() { to_ostream(ostream, width, "\t"); },
+        [&]() { to_ostream(ostream, altitude, "\t"); },
+        [&]() { to_ostream(ostream, ts_gps, "\t"); },
+        [&]() { to_ostream(ostream, lat, lon, "\t"); },
+    };
+
+    for (const auto &action : serActions) {
+        action(); // Execute the serialization action
+    }
+}
+
+void exif::exportJson(const std::string &dir, std::ostream &out) {
+    nlohmann::json js;
+
+    for (const auto &path : utils::listAllImages(dir)) {
+        exif::Attrs exif = exif::Attrs(path);
+        nlohmann::json j = exif.ToJson();
+        js.push_back(j);
+    }
+    out << js.dump(4) << std::endl;
+}
+
+void exif::exportCsv(const std::string &dir, std::ostream &out) {
+    out << "file\theight\twidth\taltitude\ttimestamp\tlatitude\tlongitude\teast"
+           "ing\tnorthing"
+        << std::endl;
+    for (const auto &img_path : utils::listAllImages(dir)) {
+        exif::Attrs exif = exif::Attrs(img_path);
+        exif.ToCsv(out);
+        out << std::endl;
+    }
 }

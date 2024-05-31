@@ -53,10 +53,16 @@ namespace fdt {
 
             const nlohmann::json ToJson() const;
 
+            void ToCsv(std::ostream &) const;
+
             void Print() const;
 
             static void ListAll(const std::string &path);
         };
+
+        void exportCsv(const std::string &, std::ostream &);
+
+        void exportJson(const std::string &, std::ostream &);
 
     } // namespace exif
 } // namespace fdt

@@ -25,12 +25,14 @@ set(SOURCES
     "${FusswegDatentools_SOURCE_DIR}/src/crs.cpp"
     "${FusswegDatentools_SOURCE_DIR}/src/cv.cpp"
     "${FusswegDatentools_SOURCE_DIR}/src/exif.cpp"
+    "${FusswegDatentools_SOURCE_DIR}/src/gis.cpp"
 )
 set(HEADERS
     "${FusswegDatentools_SOURCE_DIR}/include/annot.hpp"
     "${FusswegDatentools_SOURCE_DIR}/include/crs.hpp"
     "${FusswegDatentools_SOURCE_DIR}/include/cv.hpp"
     "${FusswegDatentools_SOURCE_DIR}/include/exif.hpp"
+    "${FusswegDatentools_SOURCE_DIR}/include/gis.hpp"
     "${FusswegDatentools_SOURCE_DIR}/include/utils.hpp"
 )
 
@@ -58,6 +60,7 @@ add_executable(FDTTest
     "${FusswegDatentools_SOURCE_DIR}/src/annot.cpp"
     "${FusswegDatentools_SOURCE_DIR}/src/crs.cpp"
     "${FusswegDatentools_SOURCE_DIR}/src/exif.cpp"
+    "${FusswegDatentools_SOURCE_DIR}/src/gis.cpp"
     "${FusswegDatentools_SOURCE_DIR}/tests/test_main.cpp"
 )
 add_test(NAME FDTTestSuite COMMAND FDTTest)
