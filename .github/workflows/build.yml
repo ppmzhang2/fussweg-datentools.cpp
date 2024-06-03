@@ -4,6 +4,9 @@ on:
   push:
     branches:
       - master
+    paths:
+      - 'include/**'
+      - 'src/**'
   workflow_dispatch:
 
 concurrency:
@@ -98,6 +101,6 @@ jobs:
         GITHUB_TOKEN: ${{ secrets.PERSONAL_TOKEN }}
       with:
         upload_url: ${{ steps.create_release.outputs.upload_url }}
-        asset_path: ./build/bin/FusswegDatentools
-        asset_name: fusswegdatentools
+        asset_path: ./build/bin/fdt
+        asset_name: fdt
         asset_content_type: application/octet-stream

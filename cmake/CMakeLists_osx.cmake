@@ -99,7 +99,7 @@ endforeach()
 list(APPEND MAIN_ALL_LIBS ${OCV_ALL_LIBS})
 list(APPEND TEST_ALL_LIBS ${OCV_ALL_LIBS})
 
-target_include_directories(${PROJECT_NAME} PRIVATE
+target_include_directories(${OUT_BIN_NAME} PRIVATE
     ${OpenCV_INC_DIR}
     ${ZLIBNG_INC_DIR}
     ${PNG_INC_DIR}
@@ -108,7 +108,7 @@ target_include_directories(${PROJECT_NAME} PRIVATE
     "${FusswegDatentools_SOURCE_DIR}/include"
     "${FusswegDatentools_BINARY_DIR}/include" # Ensures config.h can be found
 )
-target_include_directories(FDTTest PRIVATE
+target_include_directories(${TEST_BIN_NAME} PRIVATE
     ${OpenCV_INC_DIR}
     ${ZLIBNG_INC_DIR}
     ${PNG_INC_DIR}
@@ -119,5 +119,5 @@ target_include_directories(FDTTest PRIVATE
 )
 
 # Link libraries
-target_link_libraries(${PROJECT_NAME} PRIVATE ${MAIN_ALL_LIBS})
-target_link_libraries(FDTTest PRIVATE ${TEST_ALL_LIBS})
+target_link_libraries(${OUT_BIN_NAME} PRIVATE ${MAIN_ALL_LIBS})
+target_link_libraries(${TEST_BIN_NAME} PRIVATE ${TEST_ALL_LIBS})

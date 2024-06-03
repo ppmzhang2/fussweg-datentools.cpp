@@ -5,6 +5,7 @@
 #include "crs.hpp"
 #include "cv.hpp"
 #include "exif.hpp"
+#include "gis.hpp"
 #include "utils.hpp"
 
 int parse_args(int argc, char *argv[]) {
@@ -37,6 +38,8 @@ int parse_args(int argc, char *argv[]) {
                   << "<longitude>" << std::endl;
         std::cout << "  " << argv[0] << " crs-from-nzgd2000 <easting> "
                   << "<northing>" << std::endl;
+        std::cout << "  " << argv[0] << " geojson-to-tsv <geojson_file> "
+                  << "<output_file>" << std::endl;
         return 1;
     }
 
@@ -44,7 +47,8 @@ int parse_args(int argc, char *argv[]) {
     if (op != "exif-export-json" && op != "exif-export-csv" &&
         op != "displacement" && op != "bbox-draw" && op != "bbox-export-stat" &&
         op != "bbox-stat" && op != "pov-roi" && op != "pov-transform" &&
-        op != "crs-to-nzgd2000" && op != "crs-from-nzgd2000") {
+        op != "crs-to-nzgd2000" && op != "crs-from-nzgd2000" &&
+        op != "geojson-to-tsv") {
         throw std::runtime_error("Unknown operation. ");
     }
     if ((op == "exif-export-json" && argc != 4) ||
@@ -55,7 +59,8 @@ int parse_args(int argc, char *argv[]) {
         (op == "pov-roi" && argc != 20) ||
         (op == "pov-transform" && argc != 14) ||
         (op == "crs-to-nzgd2000" && argc != 4) ||
-        (op == "crs-from-nzgd2000" && argc != 4)) {
+        (op == "crs-from-nzgd2000" && argc != 4) ||
+        (op == "geojson-to-tsv" && argc != 4)) {
         throw std::runtime_error("Invalid number of arguments.");
     }
     if (op == "exif-export-json") {
@@ -187,6 +192,14 @@ int parse_args(int argc, char *argv[]) {
         double n = std::strtod(argv[3], nullptr);
         auto [lat, lon] = fdt::crs::FromNzgd2000(e, n);
         std::cout << "Latitude: " << lat << ", Longitude: " << lon << std::endl;
+        return 0;
+    }
+    if (op == "geojson-to-tsv") {
+        std::ifstream geojson_file(argv[2]);
+        std::ofstream output_file(argv[3]);
+        fdt::gis::Geojson2Tsv(geojson_file, output_file);
+        geojson_file.close();
+        output_file.close();
         return 0;
     }
     return 1;

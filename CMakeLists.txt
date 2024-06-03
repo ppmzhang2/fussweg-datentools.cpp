@@ -1,6 +1,10 @@
 cmake_minimum_required(VERSION 3.27)
 project(FusswegDatentools VERSION 1.0.0)
 
+# Specify output binary names
+set(OUT_BIN_NAME "fdt")
+set(TEST_BIN_NAME "fdt_test")
+
 # Specify the C++ standard
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED True)
@@ -37,12 +41,12 @@ set(HEADERS
 )
 
 # Create the executable
-add_executable(${PROJECT_NAME}
+add_executable(${OUT_BIN_NAME}
     ${SOURCES}
     ${HEADERS}
 )
 # Set the runtime output directory to be inside the build directory
-set_target_properties(${PROJECT_NAME} PROPERTIES
+set_target_properties(${OUT_BIN_NAME} PROPERTIES
     RUNTIME_OUTPUT_DIRECTORY "${FusswegDatentools_BINARY_DIR}/bin"
 )
 
@@ -56,14 +60,14 @@ configure_file(
 # Tests
 # -----------------------------------------------------------------------------
 enable_testing()
-add_executable(FDTTest
+add_executable(${TEST_BIN_NAME}
     "${FusswegDatentools_SOURCE_DIR}/src/annot.cpp"
     "${FusswegDatentools_SOURCE_DIR}/src/crs.cpp"
     "${FusswegDatentools_SOURCE_DIR}/src/exif.cpp"
     "${FusswegDatentools_SOURCE_DIR}/src/gis.cpp"
     "${FusswegDatentools_SOURCE_DIR}/tests/test_main.cpp"
 )
-add_test(NAME FDTTestSuite COMMAND FDTTest)
+add_test(NAME ${TEST_BIN_NAME} COMMAND ${TEST_BIN_NAME})
 
 # -----------------------------------------------------------------------------
 # Detect the operating system and architecture

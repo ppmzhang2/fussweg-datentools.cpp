@@ -64,7 +64,7 @@ points. The program will further calculate the quadrilateral region of interest
 and returning the intersections of the lines.
 
 ```bash
-FusswegDatentools pov-roi 5568 4872 \
+fdt pov-roi 5568 4872 \
 1404 3764 2159 1519 5033 2712 3849 1159 3710 275 3279 295 1026 3774 5187 3710
 # Output:
 # TL -> 2537.67, 145.667
@@ -76,7 +76,7 @@ FusswegDatentools pov-roi 5568 4872 \
 Use the output to transform images to a bird's-eye view:
 
 ```bash
-FusswegDatentools pov-transform 200 1600 \
+fdt pov-transform 200 1600 \
 2537.67 145.667 2975.28 124.631 5551.82 4842.37 0.0 4872.0 \
 path/to/image/folder \
 path/to/output/folder
