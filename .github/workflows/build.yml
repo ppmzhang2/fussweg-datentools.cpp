@@ -15,7 +15,7 @@ concurrency:
 
 jobs:
   build_and_release:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-20.04
     timeout-minutes: 20
 
     steps:
@@ -25,12 +25,11 @@ jobs:
     - name: Install dependencies
       run: |
         sudo apt-get update
-        sudo apt-get install -y cmake
-
-    - name: Set up LLVM
-      uses: KyleMayes/install-llvm-action@v2
-      with:
-        version: "17.0"
+        sudo apt-get install -y wget gnupg
+        wget https://apt.llvm.org/llvm.sh
+        chmod +x llvm.sh
+        sudo ./llvm.sh 19
+        sudo apt-get install -y cmake build-essential clang-19 lld-19
 
     - name: Setup Contribs
       run: |
@@ -47,17 +46,17 @@ jobs:
         ./scripts/exiv2_build.sh
         ./scripts/opencv_build.sh
       env:
-        CC: ${{ github.workspace }}/llvm/bin/clang
-        CXX: ${{ github.workspace }}/llvm/bin/clang++
-        LD: ${{ github.workspace }}/llvm/bin/ld.lld
+        CC: /usr/bin/clang-19
+        CXX: /usr/bin/clang++-19
+        LD: /usr/bin/ld.lld-19
 
     - name: Run build script
       run: |
         ./build.sh release
       env:
-        CC: ${{ github.workspace }}/llvm/bin/clang
-        CXX: ${{ github.workspace }}/llvm/bin/clang++
-        LD: ${{ github.workspace }}/llvm/bin/ld.lld
+        CC: /usr/bin/clang-19
+        CXX: /usr/bin/clang++-19
+        LD: /usr/bin/ld.lld-19
 
     - name: Extract branch or tag name
       id: extract_ref

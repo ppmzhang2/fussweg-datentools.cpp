@@ -10,7 +10,10 @@
 
 # Link against libraries such as libdl, libc, etc.
 # TODO: maybe libc++ and libc++abi?
-link_directories(/usr/lib/x86_64-linux-gnu)
+# link_directories(/usr/lib/x86_64-linux-gnu)
+set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -static-libgcc -static-libstdc++")
+set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -static-libgcc -static-libstdc++")
+set(CMAKE_MODULE_LINKER_FLAGS "${CMAKE_MODULE_LINKER_FLAGS} -static-libgcc -static-libstdc++")
 
 # -----------------------------------------------------------------------------
 # OpenCV
