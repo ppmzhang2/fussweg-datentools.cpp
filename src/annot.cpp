@@ -452,6 +452,32 @@ static annot::ImgBoxArr boxarr2imgboxarr(const annot::BoxArr &boxes) {
     return iboxes;
 }
 
+// Convert Box to TSV strings. Format:
+//
+//  group,image,type,level,y1,x1,y2,x2
+const std::string annot::Box::ToTsv(const std::string &group) const {
+    std::string res = "";
+    for (int ind_type = 0; ind_type < kNFaultType; ind_type++) {
+        uint8_t ind_level =
+            (static_cast<uint16_t>(fault) >> (ind_type * 2)) & 0b11;
+        if (ind_level != 0) {
+            res += group + "\t" + image + "\t" + faulttype2str(ind_type) +
+                   "\t" + faultlevel2str(ind_level) + "\t" + std::to_string(y) +
+                   "\t" + std::to_string(x) + "\t" + std::to_string(y + h) +
+                   "\t" + std::to_string(x + w) + "\n";
+        }
+    }
+    return res;
+}
+
+const std::string annot::ImgBox::ToTsv(const std::string &group) const {
+    std::string res = "";
+    for (const auto &box : boxes) {
+        res += box.ToTsv(group);
+    }
+    return res;
+}
+
 // Parse CSV annotation file. Example CSV record (Box):
 //
 // - ["region_shape_attributes"]:
@@ -551,6 +577,28 @@ void annot::drawImgBoxes(const std::string &dir_lab, const std::string &src,
         }
         for (auto &ibox : iboxes) {
             annot::drawImgBox(ibox, src, dst);
+        }
+    }
+}
+
+void annot::exportTsv(const std::string &dir_lab, const std::string &group,
+                      std::ostream &stream_o) {
+    // Write the header
+    stream_o << "group\timage\ttype\tlevel\ty1\tx1\ty2\tx2\n";
+    // Loop through all CSV files
+    for (const auto &f : fdt::utils::listAllFiles(dir_lab, ".csv")) {
+        std::ifstream stream_if(f);
+        ImgBoxArr ibx_arr = annot::parseCsv(stream_if);
+        for (const auto &ibx : ibx_arr) {
+            stream_o << ibx.ToTsv(group);
+        }
+    }
+    // Loop through all JSON files
+    for (const auto &f : fdt::utils::listAllFiles(dir_lab, ".json")) {
+        std::ifstream stream_if(f);
+        ImgBoxArr ibx_arr = annot::parseJson(stream_if);
+        for (const auto &ibx : ibx_arr) {
+            stream_o << ibx.ToTsv(group);
         }
     }
 }

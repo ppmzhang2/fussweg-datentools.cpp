@@ -15,15 +15,26 @@ int parse_args(int argc, char *argv[]) {
                   << VERSION_PATCH << std::endl;
         std::cout << std::endl;
         std::cout << "Usage: " << std::endl;
-        std::cout << "  " << argv[0] << " exif-export-json <directory_path> "
-                  << "<output_file_path>" << std::endl;
-        std::cout << "  " << argv[0] << " exif-export-csv <directory_path> "
-                  << "<output_file_path>" << std::endl;
-        std::cout << "  " << argv[0] << " displacement <directory_path> "
-                  << "<output_file_path>" << std::endl;
-        std::cout << "  " << argv[0] << " bbox-draw <label_dir> <src_dir> "
-                  << "<dst_dir> <ext>" << std::endl;
-        std::cout << "  " << argv[0] << " bbox-stat <label_dir>" << std::endl;
+        std::cout << "  " << argv[0] << " exif-export-json "
+                  << "<directory_path> <output_file_path>" << std::endl;
+        std::cout << "  " << argv[0] << " exif-export-csv "
+                  << "<directory_path> <output_file_path>" << std::endl;
+        std::cout << "  " << argv[0] << " displacement "
+                  << "<directory_path> <output_file_path>" << std::endl;
+        std::cout << "  " << argv[0] << " annot-export "
+                  << "<label_dir> <group> <out_file_path>" << std::endl;
+        std::cout << "  " << argv[0] << " annot-export-stats "
+                  << "<label_dir> <out_file_path>" << std::endl;
+        std::cout << "  " << argv[0] << " annot-print-stats "
+                  << "<label_dir>" << std::endl;
+        std::cout << "  " << argv[0] << " bbox-draw "
+                  << "<label_dir> <src_dir> <dst_dir> <ext>" << std::endl;
+        std::cout << "  " << argv[0] << " crs-to-nzgd2000 "
+                  << "<latitude> <longitude>" << std::endl;
+        std::cout << "  " << argv[0] << " crs-from-nzgd2000 "
+                  << "<easting> <northing>" << std::endl;
+        std::cout << "  " << argv[0] << " geojson-to-tsv "
+                  << "<geojson_file> <output_file>" << std::endl;
         std::cout << "  " << argv[0] << " pov-roi <width> <height> \\\n"
                   << "    <vp_t_bl_x> <vp_t_bl_y> <vp_t_tl_x> <vp_t_tl_y> \\\n"
                   << "    <vp_t_br_x> <vp_t_br_y> <vp_t_tr_x> <vp_t_tr_y> \\\n"
@@ -34,19 +45,14 @@ int parse_args(int argc, char *argv[]) {
                   << "    <roi_tl_x> <roi_tl_y> <roi_tr_x> <roi_tr_y> \\\n"
                   << "    <roi_br_x> <roi_br_y> <roi_bl_x> <roi_bl_y> \\\n"
                   << "    <dir_src> <dir_dst>" << std::endl;
-        std::cout << "  " << argv[0] << " crs-to-nzgd2000 <latitude> "
-                  << "<longitude>" << std::endl;
-        std::cout << "  " << argv[0] << " crs-from-nzgd2000 <easting> "
-                  << "<northing>" << std::endl;
-        std::cout << "  " << argv[0] << " geojson-to-tsv <geojson_file> "
-                  << "<output_file>" << std::endl;
         return 1;
     }
 
     std::string op = argv[1];
     if (op != "exif-export-json" && op != "exif-export-csv" &&
-        op != "displacement" && op != "bbox-draw" && op != "bbox-export-stat" &&
-        op != "bbox-stat" && op != "pov-roi" && op != "pov-transform" &&
+        op != "displacement" && op != "annot-export" &&
+        op != "annot-print-stats" && op != "annot-export-stats" &&
+        op != "bbox-draw" && op != "pov-roi" && op != "pov-transform" &&
         op != "crs-to-nzgd2000" && op != "crs-from-nzgd2000" &&
         op != "geojson-to-tsv") {
         throw std::runtime_error("Unknown operation. ");
@@ -54,13 +60,15 @@ int parse_args(int argc, char *argv[]) {
     if ((op == "exif-export-json" && argc != 4) ||
         (op == "exif-export-csv" && argc != 4) ||
         (op == "displacement" && argc != 4) ||
-        (op == "bbox-draw" && argc != 6) || (op == "bbox-stat" && argc != 3) ||
-        (op == "bbox-export-stat" && argc != 4) ||
-        (op == "pov-roi" && argc != 20) ||
-        (op == "pov-transform" && argc != 14) ||
+        (op == "annot-export" && argc != 5) ||
+        (op == "annot-export-stats" && argc != 4) ||
+        (op == "annot-print-stats" && argc != 3) ||
+        (op == "bbox-draw" && argc != 6) ||
+        (op == "geojson-to-tsv" && argc != 4) ||
         (op == "crs-to-nzgd2000" && argc != 4) ||
         (op == "crs-from-nzgd2000" && argc != 4) ||
-        (op == "geojson-to-tsv" && argc != 4)) {
+        (op == "pov-roi" && argc != 20) ||
+        (op == "pov-transform" && argc != 14)) {
         throw std::runtime_error("Invalid number of arguments.");
     }
     if (op == "exif-export-json") {
@@ -100,13 +108,22 @@ int parse_args(int argc, char *argv[]) {
         fdt::annot::drawImgBoxes(dir_lab, dir_src, dir_dst, ext);
         return 0;
     }
-    if (op == "bbox-export-stat") {
+    if (op == "annot-export") {
+        std::string dir_lab = argv[2];
+        std::string group = argv[3];
+        std::string tsv_file = argv[4];
+        std::ofstream stream_of(tsv_file);
+        fdt::annot::exportTsv(dir_lab, group, stream_of);
+        stream_of.close();
+        return 0;
+    }
+    if (op == "annot-export-stats") {
         std::string dir_lab = argv[2];
         std::string csv_file = argv[3];
         fdt::annot::exportStats(dir_lab, csv_file);
         return 0;
     }
-    if (op == "bbox-stat") {
+    if (op == "annot-print-stats") {
         std::string dir_lab = argv[2];
         fdt::annot::printStats(dir_lab);
         return 0;
