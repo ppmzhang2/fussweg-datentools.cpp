@@ -63,6 +63,8 @@ namespace fdt {
             int h;
             std::string image;
             Fault fault;
+
+            const std::string ToTsv(const std::string &) const;
         };
 
         using BoxArr = std::vector<Box>;
@@ -71,15 +73,7 @@ namespace fdt {
             std::string image;
             BoxArr boxes;
 
-            void Print() const {
-                std::cout << image << std::endl;
-                for (auto &bx : boxes) {
-                    std::cout << "  " << bx.x << ", " << bx.y << ", " << bx.w
-                              << ", " << bx.h << std::endl;
-                    std::cout << "    faults: " << fault2str(bx.fault)
-                              << std::endl;
-                }
-            }
+            const std::string ToTsv(const std::string &) const;
         };
 
         using ImgBoxArr = std::vector<ImgBox>;
@@ -191,6 +185,9 @@ namespace fdt {
         ImgBoxArr parseCsv(std::istream &);
 
         ImgBoxArr parseJson(std::istream &);
+
+        void exportTsv(const std::string &, const std::string &,
+                       std::ostream &);
 
         void drawImgBox(const ImgBox &, const std::string &,
                         const std::string &);
