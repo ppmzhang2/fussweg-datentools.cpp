@@ -1,671 +1,537 @@
-#include <fstream>
-#include <iostream>
+#include <csv.hpp>
 #include <nlohmann/json.hpp>
-#include <opencv2/opencv.hpp>
-#include <string>
-#include <vector>
+#include <sqlite3.h>
+#include <sstream>
+#include <string_view>
 
 #include "annot.hpp"
 #include "utils.hpp"
 
 using namespace fdt;
 
+// Anonymous namespace to limit scope to this translation unit
 namespace {
-    // Fault-related constants
-    inline static constexpr uint8_t kNFaultLevel = 3;
-    inline static constexpr std::array<const char *, kNFaultLevel + 1>
-        kArrLevelStr = {"", "fair", "poor", "verypoor"};
-    inline static constexpr uint8_t kNFaultType = 7;
-    inline static constexpr std::array<const char *, kNFaultType> kArrTypeStr =
-        {"bump",       "crack",  "depression", "displacement",
-         "vegetation", "uneven", "pothole"};
-    inline static constexpr uint8_t kNFault = 21;
 
-    // Define the FaultType enum class
-    enum class FaultType : uint8_t {
-        NONE = 0,
-        BUMP,
-        CRACK,
-        DEPRESSION,
-        DISPLACEMENT,
-        VEGETATION,
-        UNEVEN,
-        POTHOLE,
+    // Manage SQLite3 resources
+    // Wrapper classes to handle SQLite3 resources
+    class StmtCtx {
+      private:
+        sqlite3_stmt *stmt_;
+
+      public:
+        StmtCtx(sqlite3_stmt *stmt) : stmt_(stmt) {}
+        ~StmtCtx() { sqlite3_finalize(stmt_); }
+        sqlite3_stmt *get() { return stmt_; }
     };
+    // Automatically close the database with unique_ptr
+    using DbCtx = std::unique_ptr<sqlite3, decltype(&sqlite3_close)>;
 
-    // Define the FaultLevel enum class
-    enum class FaultLevel : uint8_t {
-        NONE = 0,
-        FAIR = 1,
-        POOR = 2,
-        VPOOR = 3,
-    };
+    static constexpr const char *kSqlTransStart = "BEGIN TRANSACTION;";
 
-    static const std::unordered_map<std::string, FaultType> kMapType = {
-        {"bump", FaultType::BUMP},
-        {"crack", FaultType::CRACK},
-        {"depression", FaultType::DEPRESSION},
-        {"displacement", FaultType::DISPLACEMENT},
-        {"vegetation", FaultType::VEGETATION},
-        {"uneven", FaultType::UNEVEN},
-        {"pothole", FaultType::POTHOLE},
-    };
+    static constexpr const char *kSqlCommit = "COMMIT;";
 
-    static const std::unordered_map<std::string, FaultLevel> kMapLevel = {
-        {"fair", FaultLevel::FAIR},
-        {"poor", FaultLevel::POOR},
-        {"verypoor", FaultLevel::VPOOR},
-    };
+    static constexpr const char *kSqlDropRaw = R"(
+        DROP TABLE raw_annot;
+        DROP TABLE raw_exif;
+    )";
 
-    // Bounding Box-related constants
-    static constexpr int kThick = 5;
-    static constexpr int kFontFace = cv::FONT_HERSHEY_SIMPLEX;
-    static constexpr double kFontScale = 2.5;
-    static const cv::Scalar kTxtColor(255, 255, 255); // White
-    static const cv::Scalar kLineColor(0, 255, 0);    // Green
+    static constexpr const char *kSqlNew = R"(
+        CREATE TABLE raw_exif (
+            prefix TEXT,
+            image  TEXT,
+            height INTEGER,
+            width  INTEGER,
+            timestamp TEXT
+        );
+        CREATE TABLE raw_annot (
+            prefix TEXT,
+            image  TEXT,
+            cate   TEXT,
+            level  TEXT,
+            x      INTEGER,
+            y      INTEGER,
+            w      INTEGER,
+            h      INTEGER
+        );
+
+        CREATE TABLE annotations (
+            id      INTEGER PRIMARY KEY AUTOINCREMENT,
+            img_id  INTEGER,
+            cate_id INTEGER,
+            x       INTEGER,
+            y       INTEGER,
+            w       INTEGER,
+            h       INTEGER
+        );
+        CREATE TABLE images (
+            id     INTEGER PRIMARY KEY AUTOINCREMENT,
+            prefix TEXT,
+            image  TEXT,
+            height INTEGER,
+            width  INTEGER,
+            date   TEXT,
+            time   TEXT
+        );
+        CREATE TABLE categories (
+            id    INTEGER PRIMARY KEY AUTOINCREMENT,
+            cate  TEXT
+        );
+    )";
+
+    // Import annotation TSV
+    static constexpr const char *kSqlImportAnnot =
+        "INSERT INTO raw_annot (prefix, image, cate, level, x, y, w, h) "
+        "VALUES (?, ?, ?, ?, ?, ?, ?, ?);";
+
+    // Import exif TSV
+    static constexpr const char *kSqlImportExif =
+        "INSERT INTO raw_exif (prefix, image, height, width, timestamp) "
+        "VALUES (?, ?, ?, ?, ?);";
+
+    // Populate categories table with raw annotation data
+    static constexpr const char *kSqlFillCategories = R"(
+        INSERT INTO categories (cate)
+        SELECT DISTINCT cate
+          FROM raw_annot
+         ORDER BY cate ASC;
+    )";
+
+    // Transfer raw EXIF data to the `images` table
+    static constexpr const char *kSqlFillImages = R"(
+        INSERT INTO images (prefix, image, height, width, date, time)
+        SELECT prefix, image, height, width
+             , substr(timestamp, 1, 10) AS date
+             , substr(timestamp, 12, 8) AS time
+          FROM raw_exif
+         ORDER BY prefix ASC, image ASC, height ASC, width ASC, date ASC,
+                  time ASC;
+    )";
+
+    // Populate the annotation table with annotation and image data
+    static constexpr const char *kSqlFillAnnot = R"(
+        WITH tmp AS (
+            SELECT img.id AS img_id
+                 , cat.id AS cate_id
+                 , ann.x
+                 , ann.y
+                 , ann.w
+                 , ann.h
+              FROM raw_annot AS ann
+             INNER
+              JOIN images AS img
+                ON ann.prefix = img.prefix
+               AND ann.image = img.image
+              JOIN categories AS cat
+                ON ann.cate = cat.cate
+        )
+        INSERT INTO annotations (img_id, cate_id, x, y, w, h)
+        SELECT img_id, cate_id, x, y, w, h
+          FROM tmp
+         ORDER BY img_id ASC, cate_id ASC, x ASC, y ASC, w ASC, h ASC;
+    )";
+
+    static constexpr const char *kSqlSelAnnot = R"(
+        SELECT id, img_id, cate_id, x, y, w, h
+          FROM annotations;
+    )";
+
+    static constexpr const char *kSqlSelCate = R"(
+        SELECT id, cate FROM categories;
+    )";
+
+    static constexpr const char *kSqlSelImg = R"(
+        WITH tmp AS (
+            SELECT img_id
+              FROM annotations
+             GROUP BY 1
+        )
+        SELECT img.id
+             , img.prefix
+             , img.image
+             , img.height
+             , img.width
+             , img.date
+             , img.time
+          FROM images AS img
+         INNER
+          JOIN tmp
+            ON img.id= tmp.img_id;
+    )";
 
 } // namespace
 
-// Function to set a Fault based on input type and level
-static inline void set_fault(annot::Fault &fault, FaultType type,
-                             FaultLevel level) {
-    uint8_t ind_type = static_cast<uint8_t>(type);
-    uint8_t ind_level = static_cast<uint8_t>(level);
-    fault |= static_cast<annot::Fault>(ind_level << (2 * (ind_type - 1)));
-}
-
-// Type-wise MAX operator for Fault enum class to get the maximum level of
-// distress
-static inline void max_fault(annot::Fault &lhs, annot::Fault rhs) {
-    for (int i = 0; i < kNFaultType; i++) {
-        uint8_t cond_lhs = (static_cast<uint16_t>(lhs) >> (i * 2)) & 0b11;
-        uint8_t cond_rhs = (static_cast<uint16_t>(rhs) >> (i * 2)) & 0b11;
-        uint8_t cond = MAX2(cond_lhs, cond_rhs);
-        lhs = static_cast<annot::Fault>(
-            (static_cast<uint16_t>(lhs) & ~(0b11 << (i * 2))) |
-            (cond << (i * 2)));
-    }
-}
-
-static inline constexpr FaultLevel str2faultlevel(const std::string &str) {
-    try {
-        return kMapLevel.at(str);
-    } catch (const std::out_of_range &e) {
-        return FaultLevel::NONE;
-    }
-}
-
-static inline constexpr FaultType str2faulttype(const std::string &str) {
-    try {
-        return kMapType.at(str);
-    } catch (const std::out_of_range &e) {
-        return FaultType::NONE;
-    }
-}
-
-static inline const std::string faulttype2str(uint8_t type) {
-    try {
-        return kArrTypeStr.at(type);
-    } catch (const std::out_of_range &e) {
-        return "";
-    }
-}
-
-// Convert distress level to string
-static inline const std::string faultlevel2str(uint8_t level) {
-    try {
-        return kArrLevelStr.at(level);
-    } catch (const std::out_of_range &e) {
-        return "";
-    }
-}
-
-// Convert Fault to string
-const std::string annot::fault2str(annot::Fault fault) {
-    std::string res = "";
-    for (int ind_type = 0; ind_type < kNFaultType; ind_type++) {
-        uint8_t ind_level =
-            (static_cast<uint16_t>(fault) >> (ind_type * 2)) & 0b11;
-        if (ind_level != 0) {
-            if (!res.empty())
-                res += "_";
-            res += faulttype2str(ind_type) + "_" + faultlevel2str(ind_level);
-        }
-    }
-    return res;
-}
-
-static inline std::array<uint8_t, kNFault> fault2count(annot::Fault fault) {
-    std::array<uint8_t, kNFault> arr = {0};
-    for (int idx_type = 0; idx_type < kNFaultType; ++idx_type) {
-        uint8_t idx_level =
-            (static_cast<uint16_t>(fault) >> (idx_type * 2)) & 0b11;
-        if (idx_level != 0) {
-            int idx = idx_type * kNFaultLevel + (idx_level - 1);
-            arr[idx] = 1;
-        }
-    }
-    return arr;
-}
-
-// constructor
-annot::ImgFaultCount::ImgFaultCount()
-    : image(""), bump_fair(0), bump_poor(0), bump_verypoor(0), crack_fair(0),
-      crack_poor(0), crack_verypoor(0), depression_fair(0), depression_poor(0),
-      depression_verypoor(0), displacement_fair(0), displacement_poor(0),
-      displacement_verypoor(0), vegetation_fair(0), vegetation_poor(0),
-      vegetation_verypoor(0), uneven_fair(0), uneven_poor(0),
-      uneven_verypoor(0), pothole_fair(0), pothole_poor(0),
-      pothole_verypoor(0) {}
-
-// constructor with ImgBox
-annot::ImgFaultCount::ImgFaultCount(const ImgBox &ibox)
-    : image(ibox.image), bump_fair(0), bump_poor(0), bump_verypoor(0),
-      crack_fair(0), crack_poor(0), crack_verypoor(0), depression_fair(0),
-      depression_poor(0), depression_verypoor(0), displacement_fair(0),
-      displacement_poor(0), displacement_verypoor(0), vegetation_fair(0),
-      vegetation_poor(0), vegetation_verypoor(0), uneven_fair(0),
-      uneven_poor(0), uneven_verypoor(0), pothole_fair(0), pothole_poor(0),
-      pothole_verypoor(0) {
-    for (const auto &box : ibox.boxes) {
-        std::array<uint8_t, kNFault> arr = fault2count(box.fault);
-        bump_fair += arr[0];
-        bump_poor += arr[1];
-        bump_verypoor += arr[2];
-        crack_fair += arr[3];
-        crack_poor += arr[4];
-        crack_verypoor += arr[5];
-        depression_fair += arr[6];
-        depression_poor += arr[7];
-        depression_verypoor += arr[8];
-        displacement_fair += arr[9];
-        displacement_poor += arr[10];
-        displacement_verypoor += arr[11];
-        vegetation_fair += arr[12];
-        vegetation_poor += arr[13];
-        vegetation_verypoor += arr[14];
-        uneven_fair += arr[15];
-        uneven_poor += arr[16];
-        uneven_verypoor += arr[17];
-        pothole_fair += arr[18];
-        pothole_poor += arr[19];
-        pothole_verypoor += arr[20];
-    }
-}
-
-const std::string annot::ImgFaultCount::ToStr() const {
-    return image + "," + std::to_string(bump_fair) + "," +
-           std::to_string(bump_poor) + "," + std::to_string(bump_verypoor) +
-           "," + std::to_string(crack_fair) + "," + std::to_string(crack_poor) +
-           "," + std::to_string(crack_verypoor) + "," +
-           std::to_string(depression_fair) + "," +
-           std::to_string(depression_poor) + "," +
-           std::to_string(depression_verypoor) + "," +
-           std::to_string(displacement_fair) + "," +
-           std::to_string(displacement_poor) + "," +
-           std::to_string(displacement_verypoor) + "," +
-           std::to_string(vegetation_fair) + "," +
-           std::to_string(vegetation_poor) + "," +
-           std::to_string(vegetation_verypoor) + "," +
-           std::to_string(uneven_fair) + "," + std::to_string(uneven_poor) +
-           "," + std::to_string(uneven_verypoor) + "," +
-           std::to_string(pothole_fair) + "," + std::to_string(pothole_poor) +
-           "," + std::to_string(pothole_verypoor);
-}
-
-void annot::FaultStats::AddFault(const Fault &f) {
-    std::array<uint8_t, kNFault> arr = fault2count(f);
-    bump_fair += arr[0];
-    bump_poor += arr[1];
-    bump_verypoor += arr[2];
-    crack_fair += arr[3];
-    crack_poor += arr[4];
-    crack_verypoor += arr[5];
-    depression_fair += arr[6];
-    depression_poor += arr[7];
-    depression_verypoor += arr[8];
-    displacement_fair += arr[9];
-    displacement_poor += arr[10];
-    displacement_verypoor += arr[11];
-    vegetation_fair += arr[12];
-    vegetation_poor += arr[13];
-    vegetation_verypoor += arr[14];
-    uneven_fair += arr[15];
-    uneven_poor += arr[16];
-    uneven_verypoor += arr[17];
-    pothole_fair += arr[18];
-    pothole_poor += arr[19];
-    pothole_verypoor += arr[20];
-}
-
-// Parse CSV line
-//
-// example CSV line:
-//   G0019580.JPG,3117257,"{}",3,2,
-//   "{""name"":""rect"",""x"":2744,""y"":390,""width"":86,""height"":503}",
-//   "{""fault"":{""crack"":true},""condition"":{""fair"":true}}"
-// task:
-//   - skip comma in curly brace
-//   - reduce double double-quote to single double-quote
-static std::vector<std::string> parse_csv_line(const std::string &line) {
-    std::vector<std::string> result;
-    std::string cell;
-
-    uint8_t braces = 0; // skip comma in curly brace
-    bool quote = false; // detect double double-quote
-    for (char ch : line) {
-        // whether push cell to result or not, depends on comma and in_brace
-        if (ch == ',' && braces == 0) {
-            result.push_back(cell);
-            cell.clear();
-        } else if (ch == '{') {
-            braces += 1;
-        } else if (ch == '}') {
-            braces -= 1;
-        }
-
-        // whether add ch to cell or not, depends on quote and double
-        // double-quote
-        if (ch == ',' && braces == 0) {
-            // comma outside of curly brace; do NOT add ch
-            quote = false;
-            continue;
-        } else if (ch == ',' && braces != 0) {
-            // comma inside of curly brace; add ch
-            quote = false;
-            cell += ch;
-        } else if (ch == '"' && !quote) {
-            // do NOT add ch as we do not know if it is a single or double
-            quote = true;
-        } else if (ch != '"' && quote) {
-            // two conditions:
-            // 1. single double-quote (ch != '"' && quote):
-            //    usually ch is '{' or ','
-            quote = false;
-            cell += ch;
-        } else if (ch == '"' && quote) {
-            // double double-quote; used for key or value; add one double-quote
-            quote = false;
-            cell += ch;
-        } else {
-            cell += ch;
-        }
-    }
-
-    if (!cell.empty()) {
-        result.push_back(cell); // Add the last cell
-    }
-
-    return result;
-}
-
-static nlohmann::json filecsv2json(std::istream &stream) {
-    std::string line;
-    getline(stream, line); // Read the header line
-
-    std::vector<std::string> header = parse_csv_line(line);
-
-    nlohmann::json jsonArray;
-
-    while (getline(stream, line)) {
-        std::vector<std::string> values = parse_csv_line(line);
-
-        nlohmann::json j;
-
-        for (size_t i = 0; i < header.size() && i < values.size(); ++i) {
-            if (header[i] == "region_shape_attributes" ||
-                header[i] == "region_attributes") {
-                j[header[i]] = nlohmann::json::parse(values[i]);
-            } else {
-                j[header[i]] = values[i];
-            }
-        }
-
-        jsonArray.push_back(j);
-    }
-
-    return jsonArray;
-}
-
-static nlohmann::json filejson2json(std::istream &stream) {
-    nlohmann::json json_raw, json_array;
-    try {
-        stream >> json_raw;
-    } catch (const nlohmann::json::parse_error &e) {
-        std::cerr << "Raw JSON Parse Error: " << e.what() << "\n";
-        return 2;
-    }
-
-    // Loop through "_via_img_metadata"
-    for (auto &[key, value] : json_raw["_via_img_metadata"].items()) {
-        nlohmann::json j;
-
-        // skip empty "regions" as no fault is detected
-        if (!value["regions"].empty()) {
-            for (const auto &region : value["regions"]) {
-                j["filename"] = value["filename"];
-                j["region_attributes"] = region["region_attributes"];
-                j["region_shape_attributes"] = region["shape_attributes"];
-                // most fine-grained data; no grouping
-                json_array.push_back(j);
-            }
-        }
-    }
-    return json_array;
-}
-
-// Convert JSON to BoxArr
-//
-// Example JSON:
-//
-// - ["region_attributes"]["condition"]: {"fair": true}
-// - ["region_attributes"]["fault"]: {"crack": true}
-// - ["region_shape_attributes"]:
-//   {"x": 2744, "y": 390, "width": 86, "height": 503}
-//
-// NOTE:
-//
-// - Records contain missing keys; without explicit check, the program will
-//   crash.
-// - For each valid record, ["region_attributes"]["condition"], i.e. level, has
-//   at most one key-value pair. We only process the first item and discard the
-//   rest.
-// - ["region_attributes"]["fault"] may contain multiple valid key-value pairs.
-//   Add them all to one fault for one record.
-// - For all key-value pairs of both ["region_attributes"]["condition"] and
-//   ["region_attributes"]["fault"], ONLY KEYS MATTER. Valid values are always
-//   true, and thus they are IGNORED.
-static annot::BoxArr json2boxarr(const nlohmann::json &json) {
-    annot::BoxArr boxes;
-    for (auto &j : json) {
-
-        // Skip record if
-        // - any required key is missing
-        // - any required field is empty
-        if (!j.contains("filename") || !j.contains("region_attributes") ||
-            !j.contains("region_shape_attributes")) {
-            continue;
-        } else if (!j["region_attributes"].contains("condition") ||
-                   !j["region_attributes"].contains("fault")) {
-            continue;
-        } else if (j["region_attributes"]["condition"].empty() ||
-                   j["region_attributes"]["fault"].empty()) {
-            continue;
-        }
-
-        annot::Fault fault = annot::Fault::NONE;
-        FaultType type = FaultType::NONE;
-
-        // Process only the first valid item in "condition"
-        auto level_it = j["region_attributes"]["condition"].items().begin();
-        FaultLevel level = str2faultlevel(level_it.key());
-        // Skip if the level is invalid
-        if (level == FaultLevel::NONE) {
-            continue;
-        }
-
-        // Loop to include all valid fault types
-        for (auto &type_it : j["region_attributes"]["fault"].items()) {
-            type = str2faulttype(type_it.key());
-            if (type == FaultType::NONE) {
-                continue;
-            } else {
-                set_fault(fault, type, level);
-            }
-        }
-
-        annot::Box bx;
-        bx.image = j["filename"];
-        bx.x = j["region_shape_attributes"].value("x", -1);
-        bx.y = j["region_shape_attributes"].value("y", -1);
-        bx.w = j["region_shape_attributes"].value("width", -1);
-        bx.h = j["region_shape_attributes"].value("height", -1);
-        bx.fault = fault;
-
-        boxes.push_back(bx);
-    }
-    return boxes;
-}
-
-static annot::ImgBoxArr boxarr2imgboxarr(const annot::BoxArr &boxes) {
-    std::map<std::string, annot::BoxArr> img_map;
-
-    // Group the boxes by their image
-    for (const auto &b : boxes) {
-        // skip box with no faults and conditions
-        // parse b.fault as uint32_t to check if it is 0
-        if (*(uint32_t *)&b.fault == 0) {
-            continue;
-        }
-        img_map[b.image].push_back(b);
-    }
-
-    // Convert the map to a vector of Boxes
-    annot::ImgBoxArr iboxes;
-    for (const auto &pair : img_map) {
-        annot::ImgBox bb;
-        bb.image = pair.first;
-        bb.boxes = pair.second;
-        iboxes.push_back(bb);
-    }
-
-    return iboxes;
-}
-
-// Convert Box to TSV strings. Format:
-//
-//  group,image,type,level,y1,x1,y2,x2
-const std::string annot::Box::ToTsv(const std::string &group) const {
-    std::string res = "";
-    for (int ind_type = 0; ind_type < kNFaultType; ind_type++) {
-        uint8_t ind_level =
-            (static_cast<uint16_t>(fault) >> (ind_type * 2)) & 0b11;
-        if (ind_level != 0) {
-            res += group + "\t" + image + "\t" + faulttype2str(ind_type) +
-                   "\t" + faultlevel2str(ind_level) + "\t" + std::to_string(y) +
-                   "\t" + std::to_string(x) + "\t" + std::to_string(y + h) +
-                   "\t" + std::to_string(x + w) + "\n";
-        }
-    }
-    return res;
-}
-
-const std::string annot::ImgBox::ToTsv(const std::string &group) const {
-    std::string res = "";
-    for (const auto &box : boxes) {
-        res += box.ToTsv(group);
-    }
-    return res;
-}
-
-// Parse CSV annotation file. Example CSV record (Box):
-//
-// - ["region_shape_attributes"]:
-//   {""name"":""rect"",""x"":1730,""y"":2613,""width"":737,""height"":577}
-// - ["region_attributes"]
-//   {""fault"":{""bump"":true,""crack"":true},""condition"":{""poor"":true}}
-annot::ImgBoxArr annot::parseCsv(std::istream &stream_i) {
-    const nlohmann::json json = filecsv2json(stream_i);
-    const BoxArr bx_arr = json2boxarr(json);
-    const ImgBoxArr ibx_arr = boxarr2imgboxarr(bx_arr);
-    return ibx_arr;
-}
-
-// Parse JSON annotation file. Example JSON of one image (ImgBox):
-//
-// ```json
-// {
-//   "filename": "G0021000.JPG",
-//   "size": 3116288,
-//   "regions": [
-//     {
-//       "shape_attributes": {
-//         "name": "rect", "x": 1730, "y": 2613, "width": 737, "height": 577
-//       },
-//       "region_attributes": {
-//         "fault": { "pothole": true }, "condition": { "verypoor": true }
-//       }
-//     },
-//     {
-//       "shape_attributes": {
-//         "name": "rect", "x": 2211, "y": 1532, "width": 679, "height": 1014
-//       },
-//       "region_attributes": {
-//         "fault": { "crack": true }, "condition": { "poor": true }
-//       }
-//     }
-//   ],
-//   "file_attributes": {}
-// }
-// ```
-annot::ImgBoxArr annot::parseJson(std::istream &stream_i) {
-    const nlohmann::json json = filejson2json(stream_i);
-    const BoxArr bx_arr = json2boxarr(json);
-    const ImgBoxArr ibx_arr = boxarr2imgboxarr(bx_arr);
-    return ibx_arr;
-}
-
-void annot::drawImgBox(const ImgBox &bbx, const std::string &src,
-                       const std::string &dst) {
-
-    Fault fault_img = Fault::NONE;
-    std::filesystem::path dir_src(src);
-    std::filesystem::path dir_dst(dst);
-
-    // Step 1: Read the Image
-    cv::Mat img = cv::imread(dir_src / bbx.image, cv::IMREAD_COLOR);
-    if (img.empty()) { // Check if the image is loaded
-        std::cerr << "Error: Image " << bbx.image << " cannot be loaded!"
+// Initialize DB
+inline static void init_db(sqlite3 **db) {
+    int rc = sqlite3_open(":memory:", db);
+    if (rc) {
+        std::cerr << "Can't open database: " << sqlite3_errmsg(*db)
                   << std::endl;
-        return;
-    }
-
-    // Step 2: Draw the Bounding Boxes
-    for (const auto &bbx : bbx.boxes) {
-        // get all faults for categorizing
-        max_fault(fault_img, bbx.fault);
-
-        cv::Rect box(bbx.x, bbx.y, bbx.w, bbx.h);
-        // Positioning the text above the box
-        cv::Point txtOrg(box.x, box.y - 10);
-        cv::rectangle(img, box, kLineColor, kThick);
-
-        // Add text
-        std::string txt = fault2str(bbx.fault);
-        cv::putText(img, txt, txtOrg, kFontFace, kFontScale, kTxtColor, kThick);
-    }
-
-    // Step 3. Save the Image
-    if (!cv::imwrite(dir_dst / (fault2str(fault_img) + "_" + bbx.image), img)) {
-        std::cerr << "Failed to save image" << std::endl;
+        throw std::runtime_error("SQL error");
     }
 }
 
-void annot::drawImgBoxes(const std::string &dir_lab, const std::string &src,
-                         const std::string &dst, const std::string &ext) {
-    ImgBoxArr iboxes;
-    for (const auto &f : fdt::utils::listAllFiles(dir_lab, ext)) {
-        std::ifstream stream_if(f);
-        if (!stream_if.is_open()) {
-            throw std::runtime_error("Error: Could not open file " + f);
+// Function to execute an SQLite statement and handle errors
+inline static void exe_stmt(sqlite3 *db, const std::string &sql) {
+    char *errMsg = nullptr;
+    int rc = sqlite3_exec(db, sql.c_str(), nullptr, nullptr, &errMsg);
+    if (rc != SQLITE_OK) {
+        std::cerr << "SQL error: " << errMsg << std::endl;
+        sqlite3_free(errMsg);
+        throw std::runtime_error("SQL error");
+    }
+    // Free the error message
+    sqlite3_free(errMsg);
+}
+
+inline static void bulk_insert_annot(sqlite3 *db, const std::string &tsv) {
+
+    csv::CSVFormat format;
+    format.delimiter('\t').header_row(0);
+    csv::CSVReader reader(tsv, format);
+
+    // Start a transaction
+    exe_stmt(db, kSqlTransStart);
+
+    for (const auto &row : reader) {
+
+        sqlite3_stmt *stmt = nullptr;
+        int rc = sqlite3_prepare_v2(db, kSqlImportAnnot, -1, &stmt, nullptr);
+        StmtCtx stmt_ctx(std::move(stmt));
+
+        if (rc != SQLITE_OK) {
+            std::cerr << "Cannot prepare the INSERTION: " << sqlite3_errmsg(db)
+                      << std::endl;
+            continue;
         }
-        // TODO: make it more elegant
-        if (ext == ".csv") {
-            iboxes = annot::parseCsv(stream_if);
-        } else {
-            iboxes = annot::parseJson(stream_if);
+        const auto prefix = row["prefix"].get<std::string_view>();
+        const auto image = row["image"].get<std::string_view>();
+        const auto cate = row["cate"].get<std::string_view>();
+        const auto level = row["level"].get<std::string_view>();
+
+        sqlite3_bind_text(stmt_ctx.get(), 1, prefix.data(), prefix.size(),
+                          SQLITE_STATIC);
+        sqlite3_bind_text(stmt_ctx.get(), 2, image.data(), image.size(),
+                          SQLITE_STATIC);
+        sqlite3_bind_text(stmt_ctx.get(), 3, cate.data(), cate.size(),
+                          SQLITE_STATIC);
+        sqlite3_bind_text(stmt_ctx.get(), 4, level.data(), level.size(),
+                          SQLITE_STATIC);
+        sqlite3_bind_int(stmt_ctx.get(), 5, row["x"].get<int>());
+        sqlite3_bind_int(stmt_ctx.get(), 6, row["y"].get<int>());
+        sqlite3_bind_int(stmt_ctx.get(), 7, row["w"].get<int>());
+        sqlite3_bind_int(stmt_ctx.get(), 8, row["h"].get<int>());
+
+        rc = sqlite3_step(stmt_ctx.get());
+        if (rc != SQLITE_DONE) {
+            std::cerr << "Failed to execute the INSERTION: "
+                      << sqlite3_errmsg(db) << std::endl;
+            continue;
         }
-        for (auto &ibox : iboxes) {
-            annot::drawImgBox(ibox, src, dst);
+    }
+
+    // Commit the transaction
+    exe_stmt(db, kSqlCommit);
+}
+
+inline static void bulk_insert_exif(sqlite3 *db, const std::string &tsv) {
+
+    csv::CSVFormat format;
+    format.delimiter('\t').header_row(0);
+    csv::CSVReader reader(tsv, format);
+
+    // Start a transaction
+    exe_stmt(db, kSqlTransStart);
+
+    for (const auto &row : reader) {
+
+        sqlite3_stmt *stmt;
+        int rc = sqlite3_prepare_v2(db, kSqlImportExif, -1, &stmt, nullptr);
+        StmtCtx stmt_ctx(std::move(stmt));
+
+        if (rc != SQLITE_OK) {
+            std::cerr << "Cannot prepare the INSERTION: " << sqlite3_errmsg(db)
+                      << std::endl;
+            continue;
         }
+        const auto prefix = row["prefix"].get<std::string_view>();
+        const auto image = row["image"].get<std::string_view>();
+        const auto ts = row["timestamp"].get<std::string_view>();
+
+        sqlite3_bind_text(stmt_ctx.get(), 1, prefix.data(), prefix.size(),
+                          SQLITE_STATIC);
+        sqlite3_bind_text(stmt_ctx.get(), 2, image.data(), image.size(),
+                          SQLITE_STATIC);
+        sqlite3_bind_int(stmt_ctx.get(), 3, row["height"].get<int>());
+        sqlite3_bind_int(stmt_ctx.get(), 4, row["width"].get<int>());
+        sqlite3_bind_text(stmt_ctx.get(), 5, ts.data(), ts.size(),
+                          SQLITE_STATIC);
+
+        rc = sqlite3_step(stmt_ctx.get());
+        if (rc != SQLITE_DONE) {
+            std::cerr << "Failed to execute the INSERTION: "
+                      << sqlite3_errmsg(db) << std::endl;
+            continue;
+        }
+    }
+
+    // Commit the transaction
+    exe_stmt(db, kSqlCommit);
+}
+
+// Execute a statement and process the result with a void callback
+static void process(sqlite3 *db, const char *sql,
+                    void (*callback)(sqlite3_stmt *)) {
+    sqlite3_stmt *stmt;
+    int rc = sqlite3_prepare_v2(db, sql, -1, &stmt, nullptr);
+    StmtCtx stmt_ctx(std::move(stmt));
+
+    if (rc != SQLITE_OK) {
+        std::cerr << "Cannot prepare the statement: " << sql
+                  << " Error: " << sqlite3_errmsg(db) << std::endl;
+        throw std::runtime_error("SQL error");
+    }
+
+    rc = sqlite3_step(stmt_ctx.get());
+    if (rc != SQLITE_ROW) {
+        std::cerr << "Failed to execute the statement: " << sql
+                  << " Error: " << sqlite3_errmsg(db) << std::endl;
+        throw std::runtime_error("SQL error");
+    }
+
+    while (rc == SQLITE_ROW) {
+        callback(stmt_ctx.get());
+        rc = sqlite3_step(stmt_ctx.get());
     }
 }
 
-void annot::exportTsv(const std::string &dir_lab, const std::string &group,
-                      std::ostream &stream_o) {
-    // Write the header
-    stream_o << "group\timage\ttype\tlevel\ty1\tx1\ty2\tx2\n";
-    // Loop through all CSV files
-    for (const auto &f : fdt::utils::listAllFiles(dir_lab, ".csv")) {
-        std::ifstream stream_if(f);
-        ImgBoxArr ibx_arr = annot::parseCsv(stream_if);
-        for (const auto &ibx : ibx_arr) {
-            stream_o << ibx.ToTsv(group);
-        }
-    }
-    // Loop through all JSON files
-    for (const auto &f : fdt::utils::listAllFiles(dir_lab, ".json")) {
-        std::ifstream stream_if(f);
-        ImgBoxArr ibx_arr = annot::parseJson(stream_if);
-        for (const auto &ibx : ibx_arr) {
-            stream_o << ibx.ToTsv(group);
-        }
-    }
+inline static void cb_print_int(sqlite3_stmt *stmt) {
+    std::cout << "N: " << sqlite3_column_int(stmt, 0) << std::endl;
 }
 
-void annot::exportStats(const std::string &dir_lab,
-                        const std::string &filename) {
-    // Create an empty file
-    std::ofstream file(filename, std::ios::out | std::ios::trunc);
-    if (!file.is_open()) {
-        std::cerr << "Error: Could not open file " << filename << std::endl;
-        return;
-    }
-
-    // Write the header
-    file
-        << "image,bump_fair,bump_poor,bump_verypoor,crack_fair,crack_poor,"
-           "crack_verypoor,depression_fair,depression_poor,depression_verypoor,"
-           "displacement_fair,displacement_poor,displacement_verypoor,"
-           "vegetation_fair,vegetation_poor,vegetation_verypoor,"
-           "uneven_fair,uneven_poor,uneven_verypoor,"
-           "pothole_fair,pothole_poor,pothole_verypoor\n";
-
-    // Loop through all CSV files
-    for (const auto &f : fdt::utils::listAllFiles(dir_lab, ".csv")) {
-        std::ifstream stream_if(f);
-        ImgBoxArr ibx_arr = annot::parseCsv(stream_if);
-        for (const auto &ibx : ibx_arr) {
-            ImgFaultCount fc = ImgFaultCount(ibx);
-            file << fc.ToStr() << "\n";
-        }
-    }
-    // Loop through all JSON files
-    for (const auto &f : fdt::utils::listAllFiles(dir_lab, ".json")) {
-        std::ifstream stream_if(f);
-        ImgBoxArr ibx_arr = annot::parseJson(stream_if);
-        for (const auto &ibx : ibx_arr) {
-            ImgFaultCount fc = ImgFaultCount(ibx);
-            file << fc.ToStr() << "\n";
-        }
-    }
+inline static void cb_print_annots(sqlite3_stmt *stmt) {
+    std::cout << "|" << sqlite3_column_int(stmt, 0) << "|"
+              << sqlite3_column_int(stmt, 1) << "|"
+              << sqlite3_column_int(stmt, 2) << "|"
+              << sqlite3_column_int(stmt, 3) << "|"
+              << sqlite3_column_int(stmt, 4) << "|"
+              << sqlite3_column_int(stmt, 5) << "|"
+              << sqlite3_column_int(stmt, 6) << "|" << std::endl;
 }
 
-void annot::printStats(const std::string &dir_lab) {
-    FaultStats stats;
-    unsigned int img_cnt = 0;
-    // Loop through all CSV files
-    for (const auto &f : fdt::utils::listAllFiles(dir_lab, ".csv")) {
-        std::ifstream stream_if(f);
-        ImgBoxArr ibx_arr = parseCsv(stream_if);
-        for (auto &ibx : ibx_arr) {
-            for (auto &bx : ibx.boxes) {
-                stats.AddFault(bx.fault);
-            }
-        }
-        img_cnt += ibx_arr.size();
+inline static void cb_print_exif(sqlite3_stmt *stmt) {
+    std::cout << "|" << sqlite3_column_int(stmt, 0) << "|"
+              << sqlite3_column_text(stmt, 1) << "|"
+              << sqlite3_column_text(stmt, 2) << "|"
+              << sqlite3_column_int(stmt, 3) << "|"
+              << sqlite3_column_int(stmt, 4) << "|"
+              << sqlite3_column_text(stmt, 5) << "|"
+              << sqlite3_column_text(stmt, 6) << "|" << std::endl;
+}
+
+// Load `categories`, `images`, and `annotations` tables from flat files
+static void load_db(sqlite3 *db, const std::string &dir_annot,
+                    const std::string &dir_exif) {
+    // Load annotation & EXIF TSVs
+    for (const auto &f : fdt::utils::listAllFiles(dir_annot, ".tsv")) {
+        bulk_insert_annot(db, f);
     }
-    // Loop through all JSON files
-    for (const auto &f : fdt::utils::listAllFiles(dir_lab, ".json")) {
-        std::ifstream stream_if(f);
-        ImgBoxArr ibx_arr = parseJson(stream_if);
-        for (auto &ibx : ibx_arr) {
-            for (auto &bx : ibx.boxes) {
-                stats.AddFault(bx.fault);
-            }
-        }
-        img_cnt += ibx_arr.size();
+    for (const auto &f : fdt::utils::listAllFiles(dir_exif, ".tsv")) {
+        bulk_insert_exif(db, f);
     }
-    std::cout << "Total images: " << img_cnt << std::endl;
-    stats.Print();
+
+    // Populate `categories`, `images`, and `annotations` tables
+    exe_stmt(db, kSqlFillCategories);
+    exe_stmt(db, kSqlFillImages);
+    exe_stmt(db, kSqlFillAnnot);
+}
+
+inline static nlohmann::json::array_t annot2coco(sqlite3 *db) {
+    nlohmann::json::array_t js_annot;
+
+    // Prepare the SQL statement to query the annotations table
+    sqlite3_stmt *stmt;
+    int rc = sqlite3_prepare_v2(db, kSqlSelAnnot, -1, &stmt, nullptr);
+    StmtCtx stmt_ctx(std::move(stmt));
+
+    if (rc != SQLITE_OK) {
+        std::cerr << "Cannot prepare the SELECT statement: "
+                  << sqlite3_errmsg(db) << std::endl;
+        throw std::runtime_error("SQL error");
+    }
+
+    // Execute the query and process the results
+    while ((rc = sqlite3_step(stmt_ctx.get())) == SQLITE_ROW) {
+        // Create the annotation object
+        nlohmann::json js;
+
+        const int id = sqlite3_column_int(stmt_ctx.get(), 0);
+        const int img_id = sqlite3_column_int(stmt_ctx.get(), 1);
+        const int cate_id = sqlite3_column_int(stmt_ctx.get(), 2);
+        const int x = sqlite3_column_int(stmt_ctx.get(), 3);
+        const int y = sqlite3_column_int(stmt_ctx.get(), 4);
+        const int w = sqlite3_column_int(stmt_ctx.get(), 5);
+        const int h = sqlite3_column_int(stmt_ctx.get(), 6);
+
+        js["id"] = id;
+        js["category_id"] = cate_id;
+        js["iscrowd"] = 0;
+        js["image_id"] = img_id;
+        js["bbox"] = {x, y, w, h};
+
+        // Add the annotation to the JSON array
+        js_annot.push_back(js);
+    }
+
+    if (rc != SQLITE_DONE) {
+        std::cerr << "Failed to execute the SELECT statement: "
+                  << sqlite3_errmsg(db) << std::endl;
+        throw std::runtime_error("SQL error");
+    }
+
+    return js_annot;
+}
+
+inline static nlohmann::json::array_t img2coco(sqlite3 *db) {
+    nlohmann::json::array_t js_img;
+
+    // Prepare the SQL statement to query the annotations table
+    sqlite3_stmt *stmt;
+    int rc = sqlite3_prepare_v2(db, kSqlSelImg, -1, &stmt, nullptr);
+    StmtCtx stmt_ctx(std::move(stmt));
+
+    if (rc != SQLITE_OK) {
+        std::cerr << "Cannot prepare the SELECT statement: "
+                  << sqlite3_errmsg(db) << std::endl;
+        throw std::runtime_error("SQL error");
+    }
+
+    // Execute the query and process the results
+    while ((rc = sqlite3_step(stmt_ctx.get())) == SQLITE_ROW) {
+        // Create the annotation object
+        nlohmann::json js;
+
+        const int id = sqlite3_column_int(stmt_ctx.get(), 0);
+        const char *prefix = reinterpret_cast<const char *>(
+            sqlite3_column_text(stmt_ctx.get(), 1));
+        const char *image = reinterpret_cast<const char *>(
+            sqlite3_column_text(stmt_ctx.get(), 2));
+        const int height = sqlite3_column_int(stmt_ctx.get(), 3);
+        const int width = sqlite3_column_int(stmt_ctx.get(), 4);
+        const char *date = reinterpret_cast<const char *>(
+            sqlite3_column_text(stmt_ctx.get(), 5));
+        const char *time = reinterpret_cast<const char *>(
+            sqlite3_column_text(stmt_ctx.get(), 6));
+
+        js["id"] = id;
+        js["width"] = width;
+        js["height"] = height;
+        js["file_name"] = std::string(prefix) + "/" + image;
+        js["date_captured"] = date + std::string(" ") + time;
+
+        // Add the annotation to the JSON array
+        js_img.push_back(js);
+    }
+
+    if (rc != SQLITE_DONE) {
+        std::cerr << "Failed to execute the SELECT statement: "
+                  << sqlite3_errmsg(db) << std::endl;
+        throw std::runtime_error("SQL error");
+    }
+
+    return js_img;
+}
+
+inline static nlohmann::json::array_t cate2coco(sqlite3 *db) {
+    nlohmann::json::array_t js_cate;
+
+    // Prepare the SQL statement to query the annotations table
+    sqlite3_stmt *stmt;
+    int rc = sqlite3_prepare_v2(db, kSqlSelCate, -1, &stmt, nullptr);
+    StmtCtx stmt_ctx(std::move(stmt));
+
+    if (rc != SQLITE_OK) {
+        std::cerr << "Cannot prepare the SELECT statement: "
+                  << sqlite3_errmsg(db) << std::endl;
+        throw std::runtime_error("SQL error");
+    }
+
+    // Execute the query and process the results
+    while ((rc = sqlite3_step(stmt_ctx.get())) == SQLITE_ROW) {
+        // Create the annotation object
+        nlohmann::json js;
+
+        const int id = sqlite3_column_int(stmt_ctx.get(), 0);
+        const auto cate = reinterpret_cast<const char *>(
+            sqlite3_column_text(stmt_ctx.get(), 1));
+
+        js["id"] = id;
+        js["name"] = cate;
+
+        // Add the categories to the JSON array
+        js_cate.push_back(js);
+    }
+
+    if (rc != SQLITE_DONE) {
+        std::cerr << "Failed to execute the SELECT statement: "
+                  << sqlite3_errmsg(db) << std::endl;
+        throw std::runtime_error("SQL error");
+    }
+
+    return js_cate;
+}
+
+static void db2coco(sqlite3 *db, std::ostream &output_stream) {
+    nlohmann::json coco_json;
+
+    coco_json["categories"] = cate2coco(db);
+    coco_json["images"] = img2coco(db);
+    coco_json["annotations"] = annot2coco(db);
+
+    // Write the JSON object to the output file
+    output_stream << coco_json.dump(4) << std::endl;
+}
+
+void annot::toCoco(const std::string &dir_annot, const std::string &dir_exif,
+                   std::ostream &output_stream) {
+    sqlite3 *db = nullptr;
+    init_db(&db);
+    DbCtx db_ctx(std::move(db), sqlite3_close);
+
+    // Create tables
+    exe_stmt(db_ctx.get(), kSqlNew);
+
+    // Load data
+    load_db(db_ctx.get(), dir_annot, dir_exif);
+
+    // Drop raw tables
+    exe_stmt(db_ctx.get(), kSqlDropRaw);
+
+    // Convert to COCO
+    db2coco(db_ctx.get(), output_stream);
+}
+
+void annot::print(const std::string &dir_annot, const std::string &dir_exif) {
+
+    sqlite3 *db = nullptr;
+    init_db(&db);
+    DbCtx db_ctx(std::move(db), sqlite3_close);
+
+    // Create tables
+    exe_stmt(db_ctx.get(), kSqlNew);
+
+    // Load data
+    load_db(db_ctx.get(), dir_annot, dir_exif);
+
+    // Drop raw tables
+    exe_stmt(db_ctx.get(), kSqlDropRaw);
+
+    // Count the #annotations
+    process(db_ctx.get(), "SELECT count(1) FROM annotations;", cb_print_int);
+    // Print the annotations
+    process(db_ctx.get(), kSqlSelAnnot, cb_print_annots);
+
+    // Count the #images
+    process(db_ctx.get(), "SELECT count(1) FROM images;", cb_print_int);
+    // Print the EXIF data
+    process(db_ctx.get(), kSqlSelImg, cb_print_exif);
 }

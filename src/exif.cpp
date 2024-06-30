@@ -429,7 +429,7 @@ void exif::exportJson(const std::string &dir, std::ostream &out) {
 }
 
 void exif::exportCsv(const std::string &dir, std::ostream &out) {
-    out << "file\theight\twidth\taltitude\ttimestamp\tlatitude\tlongitude\teast"
+    out << "image\theight\twidth\taltitude\ttimestamp\tlatitude\tlongitude\teast"
            "ing\tnorthing"
         << std::endl;
     for (const auto &img_path : utils::listAllImages(dir)) {
