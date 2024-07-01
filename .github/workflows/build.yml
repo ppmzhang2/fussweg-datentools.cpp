@@ -41,6 +41,7 @@ jobs:
 
     - name: Compile Contribs
       run: |
+        ./scripts/csvparser_build.sh
         ./scripts/zlibng_build.sh
         ./scripts/libpng_build.sh
         ./scripts/exiv2_build.sh

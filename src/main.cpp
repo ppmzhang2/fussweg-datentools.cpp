@@ -7,6 +7,7 @@
 #include "exif.hpp"
 #include "gis.hpp"
 #include "utils.hpp"
+#include "via.hpp"
 
 int parse_args(int argc, char *argv[]) {
     if (argc <= 1) {
@@ -21,12 +22,14 @@ int parse_args(int argc, char *argv[]) {
                   << "<directory_path> <output_file_path>" << std::endl;
         std::cout << "  " << argv[0] << " displacement "
                   << "<directory_path> <output_file_path>" << std::endl;
-        std::cout << "  " << argv[0] << " annot-export "
+        std::cout << "  " << argv[0] << " via-export "
                   << "<label_dir> <group> <out_file_path>" << std::endl;
-        std::cout << "  " << argv[0] << " annot-export-stats "
+        std::cout << "  " << argv[0] << " via-export-stats "
                   << "<label_dir> <out_file_path>" << std::endl;
-        std::cout << "  " << argv[0] << " annot-print-stats "
+        std::cout << "  " << argv[0] << " via-print-stats "
                   << "<label_dir>" << std::endl;
+        std::cout << "  " << argv[0] << " annot-to-coco "
+                  << "<annot_dir> <exif_dir> <output_file>" << std::endl;
         std::cout << "  " << argv[0] << " bbox-draw "
                   << "<label_dir> <src_dir> <dst_dir> <ext>" << std::endl;
         std::cout << "  " << argv[0] << " crs-to-nzgd2000 "
@@ -50,8 +53,8 @@ int parse_args(int argc, char *argv[]) {
 
     std::string op = argv[1];
     if (op != "exif-export-json" && op != "exif-export-csv" &&
-        op != "displacement" && op != "annot-export" &&
-        op != "annot-print-stats" && op != "annot-export-stats" &&
+        op != "displacement" && op != "via-export" && op != "via-print-stats" &&
+        op != "via-export-stats" && op != "annot-to-coco" &&
         op != "bbox-draw" && op != "pov-roi" && op != "pov-transform" &&
         op != "crs-to-nzgd2000" && op != "crs-from-nzgd2000" &&
         op != "geojson-to-tsv") {
@@ -60,9 +63,10 @@ int parse_args(int argc, char *argv[]) {
     if ((op == "exif-export-json" && argc != 4) ||
         (op == "exif-export-csv" && argc != 4) ||
         (op == "displacement" && argc != 4) ||
-        (op == "annot-export" && argc != 5) ||
-        (op == "annot-export-stats" && argc != 4) ||
-        (op == "annot-print-stats" && argc != 3) ||
+        (op == "via-export" && argc != 5) ||
+        (op == "via-export-stats" && argc != 4) ||
+        (op == "via-print-stats" && argc != 3) ||
+        (op == "annot-to-coco" && argc != 5) ||
         (op == "bbox-draw" && argc != 6) ||
         (op == "geojson-to-tsv" && argc != 4) ||
         (op == "crs-to-nzgd2000" && argc != 4) ||
@@ -105,27 +109,35 @@ int parse_args(int argc, char *argv[]) {
         } else {
             ext = ".csv";
         }
-        fdt::annot::drawImgBoxes(dir_lab, dir_src, dir_dst, ext);
+        fdt::via::drawImgBoxes(dir_lab, dir_src, dir_dst, ext);
         return 0;
     }
-    if (op == "annot-export") {
+    if (op == "via-export") {
         std::string dir_lab = argv[2];
         std::string group = argv[3];
         std::string tsv_file = argv[4];
         std::ofstream stream_of(tsv_file);
-        fdt::annot::exportTsv(dir_lab, group, stream_of);
+        fdt::via::exportTsv(dir_lab, group, stream_of);
         stream_of.close();
         return 0;
     }
-    if (op == "annot-export-stats") {
+    if (op == "via-export-stats") {
         std::string dir_lab = argv[2];
         std::string csv_file = argv[3];
-        fdt::annot::exportStats(dir_lab, csv_file);
+        fdt::via::exportStats(dir_lab, csv_file);
         return 0;
     }
-    if (op == "annot-print-stats") {
+    if (op == "via-print-stats") {
         std::string dir_lab = argv[2];
-        fdt::annot::printStats(dir_lab);
+        fdt::via::printStats(dir_lab);
+        return 0;
+    }
+    if (op == "annot-to-coco") {
+        std::string dir_annot = argv[2];
+        std::string dir_exif = argv[3];
+        std::string out_file = argv[4];
+        std::ofstream out(out_file);
+        fdt::annot::toCoco(dir_annot, dir_exif, out);
         return 0;
     }
     if (op == "pov-roi") {

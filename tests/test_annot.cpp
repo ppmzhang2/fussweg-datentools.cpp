@@ -1,7 +1,7 @@
-#include "annot.hpp"
+#include "via.hpp"
 #include <gtest/gtest.h>
 
-using namespace fdt::annot;
+using namespace fdt::via;
 
 // Test enum class Fault
 TEST(Fault, AndOrOperator) {

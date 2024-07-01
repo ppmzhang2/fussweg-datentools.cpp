@@ -49,12 +49,20 @@ find_library(OPENCV_VIDEO NAMES opencv_video HINTS ${OpenCV_LIB_DIR})
 # -----------------------------------------------------------------------------
 # Exiv2
 # -----------------------------------------------------------------------------
-set(EXIV2_DIR ${FusswegDatentools_SOURCE_DIR}/build_contrib/exiv2-install)
-set(EXIV2_INC_DIR ${EXIV2_DIR}/include)
-set(EXIV2_LIB_DIR ${EXIV2_DIR}/lib)
+set(EXIV2_DIR "${FusswegDatentools_SOURCE_DIR}/build_contrib/exiv2-install")
+set(EXIV2_INC_DIR "${EXIV2_DIR}/include")
+set(EXIV2_LIB_DIR "${EXIV2_DIR}/lib")
 
-# Find the libraries
 find_library(EXIV2 NAMES exiv2 HINTS ${EXIV2_LIB_DIR})
+
+# -----------------------------------------------------------------------------
+# CSV-Parser
+# -----------------------------------------------------------------------------
+set(CSV_DIR "${FusswegDatentools_SOURCE_DIR}/build_contrib/csv-parser-install")
+set(CSV_INC_DIR "${CSV_DIR}/include")
+set(CSV_LIB_DIR "${CSV_DIR}/lib")
+
+find_library(CSV NAMES csv HINTS ${CSV_LIB_DIR})
 
 # -----------------------------------------------------------------------------
 # nlohmann_json
@@ -64,6 +72,14 @@ set(JSON_INC_DIR "${JSON_SRC_DIR}/include/nlohmann")
 set(JSON_BuildTests OFF CACHE INTERNAL "")
 
 add_subdirectory(${JSON_SRC_DIR})
+
+# -----------------------------------------------------------------------------
+# SQLite3
+# -----------------------------------------------------------------------------
+set(SQLITE_CMAKE_DIR "${FusswegDatentools_SOURCE_DIR}/contrib/sqlite-amalgamation-cmake")
+set(SQLITE_INC_DIR "${FusswegDatentools_BINARY_DIR}/contrib/sqlite-amalgamation")
+
+add_subdirectory(${SQLITE_CMAKE_DIR})
 
 # -----------------------------------------------------------------------------
 # GTest
@@ -85,6 +101,8 @@ set(MAIN_ALL_LIBS
     ${ZLIBNG}
     ${PNG}
     ${EXIV2}
+    ${CSV}
+    _sqlite
     nlohmann_json::nlohmann_json
 )
 set(TEST_ALL_LIBS
@@ -94,6 +112,8 @@ set(TEST_ALL_LIBS
     ${ZLIBNG}
     ${PNG}
     ${EXIV2}
+    ${CSV}
+    _sqlite
     nlohmann_json::nlohmann_json
     gtest
     gtest_main
@@ -115,6 +135,8 @@ target_include_directories(${OUT_BIN_NAME} PRIVATE
     ${PNG_INC_DIR}
     ${EXIV2_INC_DIR}
     ${JSON_INC_DIR}
+    ${SQLITE_INC_DIR}
+    ${CSV_INC_DIR}
     "${FusswegDatentools_SOURCE_DIR}/include"
     "${FusswegDatentools_BINARY_DIR}/include" # Ensures config.h can be found
 )
@@ -124,6 +146,8 @@ target_include_directories(${TEST_BIN_NAME} PRIVATE
     ${PNG_INC_DIR}
     ${EXIV2_INC_DIR}
     ${JSON_INC_DIR}
+    ${SQLITE_INC_DIR}
+    ${CSV_INC_DIR}
     "${FusswegDatentools_SOURCE_DIR}/include"
     "${FusswegDatentools_BINARY_DIR}/include" # Ensures config.h can be found
 )
