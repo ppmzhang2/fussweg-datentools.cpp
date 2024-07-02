@@ -19,7 +19,7 @@
                 "CMAKE_EXPORT_COMPILE_COMMANDS": true,
                 "CMAKE_CXX_STANDARD_REQUIRED": true,
                 "CMAKE_CXX_STANDARD": "20",
-                "CMAKE_CXX_FLAGS": "-pthread -g -O0 -Wall -Wextra -Wpedantic -DDEBUG",
+                "CMAKE_CXX_FLAGS": "-pthread -g -O0 -Wall -Wextra -Wpedantic -DDEBUG -Wno-c11-extensions",
                 "CMAKE_EXE_LINKER_FLAGS": "-g"
             }
         },
@@ -35,7 +35,7 @@
                 "CMAKE_EXPORT_COMPILE_COMMANDS": true,
                 "CMAKE_CXX_STANDARD_REQUIRED": true,
                 "CMAKE_CXX_STANDARD": "20",
-                "CMAKE_CXX_FLAGS": "-pthread -O3 -DNDEBUG -Wall -Wextra -Wpedantic",
+                "CMAKE_CXX_FLAGS": "-pthread -O3 -DNDEBUG -Wall -Wextra -Wpedantic -Wno-c11-extensions",
                 "CMAKE_EXE_LINKER_FLAGS": "-O3"
             }
         }
