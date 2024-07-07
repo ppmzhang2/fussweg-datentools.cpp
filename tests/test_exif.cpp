@@ -70,7 +70,7 @@ TEST(Attrs, ToCsvEmpty) {
 
 TEST(exif, ExportCsv) {
     static constexpr char kExpectedCsv[] =
-        "file\theight\twidth\taltitude\ttimestamp\tlatitude\tlongitude\teasting"
+        "image\theight\twidth\taltitude\ttimestamp\tlatitude\tlongitude\teasting"
         "\tno"
         "rthing\ngps.jpg\t480\t640\t0.000000\t2008-10-23T14:27:07\t43."
         "467447\t11."
