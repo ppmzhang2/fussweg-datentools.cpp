@@ -57,7 +57,7 @@ static inline const std::string wkt_mpolygon(const nlohmann::json &js) {
     return wkt;
 }
 
-const std::string fdt::gis::json2wkt(const nlohmann::json &js) {
+std::string fdt::gis::json2wkt(const nlohmann::json &js) {
     const std::string geom_type = js["geometry"]["shapeType"];
     const nlohmann::json &coords = js["geometry"]["coordinates"];
 

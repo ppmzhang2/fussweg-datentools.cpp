@@ -125,7 +125,7 @@ static inline const std::string faultlevel2str(uint8_t level) {
 }
 
 // Convert Fault to string
-const std::string via::fault2str(via::Fault fault) {
+std::string via::fault2str(via::Fault fault) {
     std::string res = "";
     for (int ind_type = 0; ind_type < kNFaultType; ind_type++) {
         uint8_t ind_level =
@@ -197,7 +197,7 @@ via::ImgFaultCount::ImgFaultCount(const ImgBox &ibox)
     }
 }
 
-const std::string via::ImgFaultCount::ToStr() const {
+std::string via::ImgFaultCount::ToStr() const {
     return image + "," + std::to_string(bump_fair) + "," +
            std::to_string(bump_poor) + "," + std::to_string(bump_verypoor) +
            "," + std::to_string(crack_fair) + "," + std::to_string(crack_poor) +
@@ -459,7 +459,7 @@ static via::ImgBoxArr boxarr2imgboxarr(const via::BoxArr &boxes) {
 // Convert Box to TSV strings. Format:
 //
 //  prefix,image,cate,level,x,y,w,h
-const std::string via::Box::ToTsv(const std::string &group) const {
+std::string via::Box::ToTsv(const std::string &group) const {
     std::string res = "";
     for (int ind_type = 0; ind_type < kNFaultType; ind_type++) {
         uint8_t ind_level =
@@ -474,7 +474,7 @@ const std::string via::Box::ToTsv(const std::string &group) const {
     return res;
 }
 
-const std::string via::ImgBox::ToTsv(const std::string &group) const {
+std::string via::ImgBox::ToTsv(const std::string &group) const {
     std::string res = "";
     for (const auto &box : boxes) {
         res += box.ToTsv(group);

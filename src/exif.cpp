@@ -328,7 +328,7 @@ static inline void assign_to_json(nlohmann::json &j, const std::string &key,
     }
 }
 
-const nlohmann::json exif::Attrs::ToJson() const {
+nlohmann::json exif::Attrs::ToJson() const {
     nlohmann::json out;
 
     // Define a list of serialization actions
@@ -429,7 +429,8 @@ void exif::exportJson(const std::string &dir, std::ostream &out) {
 }
 
 void exif::exportCsv(const std::string &dir, std::ostream &out) {
-    out << "image\theight\twidth\taltitude\ttimestamp\tlatitude\tlongitude\teast"
+    out << "image\theight\twidth\taltitude\ttimestamp\tlatitude\tlongitude\teas"
+           "t"
            "ing\tnorthing"
         << std::endl;
     for (const auto &img_path : utils::listAllImages(dir)) {

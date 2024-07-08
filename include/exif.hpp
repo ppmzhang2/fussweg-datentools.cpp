@@ -51,7 +51,7 @@ namespace fdt {
             // constructor based on GetAttrs function
             Attrs(const std::string &path);
 
-            const nlohmann::json ToJson() const;
+            nlohmann::json ToJson() const;
 
             void ToCsv(std::ostream &) const;
 

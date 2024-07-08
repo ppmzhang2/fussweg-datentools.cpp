@@ -54,7 +54,7 @@ namespace fdt {
         }
 
         // Convert Fault to string
-        const std::string fault2str(Fault fault);
+        std::string fault2str(Fault fault);
 
         struct Box {
             int x;
@@ -64,7 +64,7 @@ namespace fdt {
             std::string image;
             Fault fault;
 
-            const std::string ToTsv(const std::string &) const;
+            std::string ToTsv(const std::string &) const;
         };
 
         using BoxArr = std::vector<Box>;
@@ -73,7 +73,7 @@ namespace fdt {
             std::string image;
             BoxArr boxes;
 
-            const std::string ToTsv(const std::string &) const;
+            std::string ToTsv(const std::string &) const;
         };
 
         using ImgBoxArr = std::vector<ImgBox>;
@@ -106,7 +106,7 @@ namespace fdt {
 
             ImgFaultCount(const ImgBox &ibox);
 
-            const std::string ToStr() const;
+            std::string ToStr() const;
         };
 
         struct FaultStats {

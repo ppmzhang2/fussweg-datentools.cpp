@@ -41,13 +41,13 @@ namespace {
 } // namespace
 
 // Validation functions
-static inline constexpr void validate_latitude(double latitude) {
+static inline constexpr void validate_latitude(const double latitude) {
     if (latitude < -90 || latitude > 90) {
         throw std::invalid_argument(
             "Latitude must be between -90 and 90 degrees.");
     }
 }
-static inline constexpr void validate_longitude(double longitude) {
+static inline constexpr void validate_longitude(const double longitude) {
     if (longitude < -180 || longitude > 180) {
         throw std::invalid_argument(
             "Longitude must be between -180 and 180 degrees.");
@@ -72,7 +72,7 @@ static inline constexpr void validate_longitude(double longitude) {
 //     the Earth.
 //
 // @param sin_lat: sine of the latitude in radian
-static inline constexpr double radius_curvature(double sin_lat) {
+static inline constexpr double radius_curvature(const double sin_lat) {
     return kAlpha / sqrt(1 - kEE1st * sin_lat * sin_lat);
 }
 
@@ -142,7 +142,7 @@ static inline constexpr double arc_meridian(const double lat) {
 // TODO: reasoning
 //
 // @param cos_lat: cosine of the latitude in radian
-static inline constexpr double ee_2nd_adj(double cos_lat) {
+static inline constexpr double ee_2nd_adj(const double cos_lat) {
     return (kEE1st / (1 - kEE1st)) * cos_lat * cos_lat;
 }
 
@@ -199,7 +199,8 @@ static inline constexpr double ee_2nd_adj(double cos_lat) {
 //          on the NZGD2000 coordinate system.
 //
 // @throws: std::invalid_argument if the latitude or longitude is out of range.
-std::tuple<double, double> const fdt::crs::ToNzgd2000(double lat, double lon) {
+std::tuple<double, double> fdt::crs::ToNzgd2000(const double lat,
+                                                const double lon) {
     validate_latitude(lat);
     validate_longitude(lon);
 
@@ -241,8 +242,8 @@ std::tuple<double, double> const fdt::crs::ToNzgd2000(double lat, double lon) {
 // Mercator projection.
 //
 // See the comments in `ToNzgd2000` for an explanation.
-std::tuple<double, double> const fdt::crs::FromNzgd2000(double easting,
-                                                        double northing) {
+std::tuple<double, double> fdt::crs::FromNzgd2000(const double easting,
+                                                  const double northing) {
     // Remove the false easting and northing
     const double x = (easting - kFalseEasting) / kK;
     const double y = (northing - kFalseNorthing) / kK;

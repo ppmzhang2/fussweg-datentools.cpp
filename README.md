@@ -1,5 +1,7 @@
 # Fussweg Datentools
 
+[![Build and Release](https://github.com/ppmzhang2/fussweg-datentools.cpp/actions/workflows/build.yml/badge.svg)](https://github.com/ppmzhang2/fussweg-datentools.cpp/actions/workflows/build.yml)
+
 Footpath image data processing tools.
 
 ## Setting Up the Development Environment
@@ -29,6 +31,7 @@ To compile the project, first compile the contribs. Run the following commands
 sequentially:
 
 ```bash
+./scripts/csvparser_build.sh
 ./scripts/zlibng_build.sh
 ./scripts/libpng_build.sh
 ./scripts/exiv2_build.sh

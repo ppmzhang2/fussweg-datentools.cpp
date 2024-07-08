@@ -10,9 +10,9 @@ namespace fdt {
 
     // Coordinate Reference System
     namespace crs {
-        std::tuple<double, double> const ToNzgd2000(double, double);
+        std::tuple<double, double> ToNzgd2000(const double, const double);
 
-        std::tuple<double, double> const FromNzgd2000(double, double);
+        std::tuple<double, double> FromNzgd2000(const double, const double);
     } // namespace crs
 
 } // namespace fdt

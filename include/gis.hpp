@@ -7,7 +7,7 @@ namespace fdt {
     // Geographic Information System
     namespace gis {
 
-        const std::string json2wkt(const nlohmann::json &);
+        std::string json2wkt(const nlohmann::json &);
 
         void Geojson2Tsv(std::istream &, std::ostream &);
 
