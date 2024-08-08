@@ -158,6 +158,9 @@ namespace {
             ON img.id= tmp.img_id;
     )";
 
+    static constexpr const float kCoCoWidth = 640.0f;
+    static constexpr const float kCoCoHeight = 480.0f;
+
 } // namespace
 
 // Initialize DB
@@ -345,7 +348,8 @@ static void load_db(sqlite3 *db, const std::string &dir_annot,
     exe_stmt(db, kSqlFillAnnot);
 }
 
-inline static nlohmann::json::array_t annot2coco(sqlite3 *db) {
+inline static nlohmann::json::array_t annot2coco(sqlite3 *db,
+                                                 const float &scale) {
     nlohmann::json::array_t js_annot;
 
     // Prepare the SQL statement to query the annotations table
@@ -371,12 +375,20 @@ inline static nlohmann::json::array_t annot2coco(sqlite3 *db) {
         const int y = sqlite3_column_int(stmt_ctx.get(), 4);
         const int w = sqlite3_column_int(stmt_ctx.get(), 5);
         const int h = sqlite3_column_int(stmt_ctx.get(), 6);
+        // during evaluation, mmdet will determine small / medium / large
+        // based on the area of the bounding box; according to the definition
+        // of COCO dataset (resolution 640x480), the small and medium areas in
+        // an image are less than 1024 (32*32), 9216 (96*96), respectively
+        // Here we scale the area to the COCO dataset resolution to simulate the
+        // same behavior; scale = 640*480/(original image resolution)
+        const float area = w * h * scale;
 
         js["id"] = id;
         js["category_id"] = cate_id;
         js["iscrowd"] = 0;
         js["image_id"] = img_id;
         js["bbox"] = {x, y, w, h};
+        js["area"] = area;
 
         // Add the annotation to the JSON array
         js_annot.push_back(js);
@@ -485,7 +497,10 @@ static void db2coco(sqlite3 *db, std::ostream &output_stream) {
 
     coco_json["categories"] = cate2coco(db);
     coco_json["images"] = img2coco(db);
-    coco_json["annotations"] = annot2coco(db);
+    const int w_img = coco_json["images"][0]["width"].get<int>();
+    const int h_img = coco_json["images"][0]["height"].get<int>();
+    const float scale = kCoCoWidth * kCoCoHeight / w_img / h_img;
+    coco_json["annotations"] = annot2coco(db, scale);
 
     // Write the JSON object to the output file
     output_stream << coco_json.dump(4) << std::endl;
