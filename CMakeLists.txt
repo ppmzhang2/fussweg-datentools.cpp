@@ -26,6 +26,7 @@ set(CMAKE_MODULE_LINKER_FLAGS "${CMAKE_MODULE_LINKER_FLAGS} -fuse-ld=lld")
 set(SOURCES
     "${FusswegDatentools_SOURCE_DIR}/src/main.cpp"
     "${FusswegDatentools_SOURCE_DIR}/src/annot.cpp"
+    "${FusswegDatentools_SOURCE_DIR}/src/img.cpp"
     "${FusswegDatentools_SOURCE_DIR}/src/via.cpp"
     "${FusswegDatentools_SOURCE_DIR}/src/crs.cpp"
     "${FusswegDatentools_SOURCE_DIR}/src/cv.cpp"
@@ -34,6 +35,7 @@ set(SOURCES
 )
 set(HEADERS
     "${FusswegDatentools_SOURCE_DIR}/include/annot.hpp"
+    "${FusswegDatentools_SOURCE_DIR}/include/img.hpp"
     "${FusswegDatentools_SOURCE_DIR}/include/via.hpp"
     "${FusswegDatentools_SOURCE_DIR}/include/crs.hpp"
     "${FusswegDatentools_SOURCE_DIR}/include/cv.hpp"
