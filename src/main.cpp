@@ -6,6 +6,7 @@
 #include "cv.hpp"
 #include "exif.hpp"
 #include "gis.hpp"
+#include "img.hpp"
 #include "utils.hpp"
 #include "via.hpp"
 
@@ -30,6 +31,8 @@ int parse_args(int argc, char *argv[]) {
                   << "<label_dir>" << std::endl;
         std::cout << "  " << argv[0] << " annot-to-coco "
                   << "<annot_dir> <exif_dir> <output_file>" << std::endl;
+        std::cout << "  " << argv[0] << " crop-bbox "
+                  << "<root_dir> <tsv_dir> <output_dir>" << std::endl;
         std::cout << "  " << argv[0] << " bbox-draw "
                   << "<label_dir> <src_dir> <dst_dir> <ext>" << std::endl;
         std::cout << "  " << argv[0] << " crs-to-nzgd2000 "
@@ -55,9 +58,9 @@ int parse_args(int argc, char *argv[]) {
     if (op != "exif-export-json" && op != "exif-export-csv" &&
         op != "displacement" && op != "via-export" && op != "via-print-stats" &&
         op != "via-export-stats" && op != "annot-to-coco" &&
-        op != "bbox-draw" && op != "pov-roi" && op != "pov-transform" &&
-        op != "crs-to-nzgd2000" && op != "crs-from-nzgd2000" &&
-        op != "geojson-to-tsv") {
+        op != "crop-bbox" && op != "bbox-draw" && op != "pov-roi" &&
+        op != "pov-transform" && op != "crs-to-nzgd2000" &&
+        op != "crs-from-nzgd2000" && op != "geojson-to-tsv") {
         throw std::runtime_error("Unknown operation. ");
     }
     if ((op == "exif-export-json" && argc != 4) ||
@@ -67,7 +70,7 @@ int parse_args(int argc, char *argv[]) {
         (op == "via-export-stats" && argc != 4) ||
         (op == "via-print-stats" && argc != 3) ||
         (op == "annot-to-coco" && argc != 5) ||
-        (op == "bbox-draw" && argc != 6) ||
+        (op == "crop-bbox" && argc != 5) || (op == "bbox-draw" && argc != 6) ||
         (op == "geojson-to-tsv" && argc != 4) ||
         (op == "crs-to-nzgd2000" && argc != 4) ||
         (op == "crs-from-nzgd2000" && argc != 4) ||
@@ -132,6 +135,14 @@ int parse_args(int argc, char *argv[]) {
         fdt::via::printStats(dir_lab);
         return 0;
     }
+    if (op == "crop-bbox") {
+        std::string root_dir = argv[2];
+        std::string tsv_dir = argv[3];
+        std::string out_dir = argv[4];
+        fdt::img::bboxCrop(root_dir, tsv_dir, out_dir);
+        return 0;
+    }
+
     if (op == "annot-to-coco") {
         std::string dir_annot = argv[2];
         std::string dir_exif = argv[3];
