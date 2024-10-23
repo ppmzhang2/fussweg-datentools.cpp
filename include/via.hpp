@@ -53,9 +53,6 @@ namespace fdt {
                                       static_cast<uint16_t>(rhs));
         }
 
-        // Convert Fault to string
-        std::string fault2str(Fault fault);
-
         struct Box {
             int x;
             int y;

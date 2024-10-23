@@ -125,7 +125,7 @@ static inline const std::string faultlevel2str(uint8_t level) {
 }
 
 // Convert Fault to string
-std::string via::fault2str(via::Fault fault) {
+std::string fault2str(via::Fault fault) {
     std::string res = "";
     for (int ind_type = 0; ind_type < kNFaultType; ind_type++) {
         uint8_t ind_level =
@@ -133,7 +133,7 @@ std::string via::fault2str(via::Fault fault) {
         if (ind_level != 0) {
             if (!res.empty())
                 res += "_";
-            res += faulttype2str(ind_type) + "_" + faultlevel2str(ind_level);
+            res += faulttype2str(ind_type) + "-" + faultlevel2str(ind_level);
         }
     }
     return res;
@@ -551,12 +551,49 @@ void via::drawImgBox(const ImgBox &bbx, const std::string &src,
 
         cv::Rect box(bbx.x, bbx.y, bbx.w, bbx.h);
         // Positioning the text above the box
-        cv::Point txtOrg(box.x, box.y - 10);
+        cv::Point pt_txt_org(box.x, box.y);
+
+        // Draw bounding box
         cv::rectangle(img, box, kLineColor, kThick);
 
-        // Add text
+        // Add text background
         std::string txt = fault2str(bbx.fault);
-        cv::putText(img, txt, txtOrg, kFontFace, kFontScale, kTxtColor, kThick);
+
+        // Step 2.1: Measure text size
+        int baseline = 0;
+        cv::Size size_txt =
+            cv::getTextSize(txt, kFontFace, kFontScale, kThick, &baseline);
+        baseline += kThick; // Adjust for thickness
+
+        // Step 3: Draw text on top of the background
+        std::vector<std::string> seq_txt;
+        std::string _txt;
+        std::istringstream iss(txt);
+        while (std::getline(iss, _txt, '_')) {
+            seq_txt.push_back(_txt);
+        }
+        cv::Rect rect_bg(pt_txt_org.x, pt_txt_org.y - size_txt.height, 900,
+                         (size_txt.height + baseline) * seq_txt.size());
+        // Extract the region of interest (ROI) where the background rectangle
+        // will be drawn
+        cv::Mat roi = img(rect_bg);
+        // Create a background image with the same size as the ROI and fill it
+        // with the color_bg (green)
+        cv::Scalar color_bg(0, 0, 0);
+        cv::Mat bg_rect(roi.size(), roi.type(), color_bg);
+        bg_rect.setTo(color_bg);
+        // Blend the background rectangle with the ROI
+        cv::addWeighted(bg_rect, 0.5, roi, 0.5, 0.0, roi);
+
+        cv::rectangle(img, rect_bg, color_bg, cv::FILLED);
+
+        for (size_t i = 0; i < seq_txt.size(); ++i) {
+            cv::putText(
+                img, seq_txt[i],
+                cv::Point(pt_txt_org.x,
+                          pt_txt_org.y + i * (size_txt.height + baseline)),
+                kFontFace, kFontScale, kTxtColor, kThick);
+        }
     }
 
     // Step 3. Save the Image
