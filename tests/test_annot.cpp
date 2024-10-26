@@ -7,11 +7,9 @@ using namespace fdt::via;
 TEST(Fault, AndOrOperator) {
     Fault fault =
         Fault::CRACK_FAIR | Fault::BUMP_POOR | Fault::DEPRESSION_VPOOR;
-    EXPECT_STREQ(fault2str(fault).data(),
-                 "bump_poor_crack_fair_depression_verypoor");
+    EXPECT_EQ(static_cast<int>(fault), 0b0000000000110110);
     fault |= (Fault::CRACK_VPOOR | Fault::UNEVEN_POOR);
-    EXPECT_STREQ(fault2str(fault).c_str(),
-                 "bump_poor_crack_verypoor_depression_verypoor_uneven_poor");
+    EXPECT_EQ(static_cast<int>(fault), 0b0000100000111110);
 }
 
 TEST(ImgBox, ParseFromCsv) {

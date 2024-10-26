@@ -5,6 +5,8 @@
 #include <iostream>
 #include <opencv2/opencv.hpp>
 
+const int max_threads = std::thread::hardware_concurrency();
+
 // Function to process each record and save the bounding box as an image
 // Handles one TSV file at a time
 void crop_bbox(const std::string &root_dir, const std::string &tsv_file,
@@ -15,12 +17,39 @@ void crop_bbox(const std::string &root_dir, const std::string &tsv_file,
     format.delimiter('\t').header_row(0);
     csv::CSVReader reader(tsv_file, format);
 
+    // Check if the TSV file contains 'category' and 'level' columns
+    const std::vector<std::string> columns = reader.get_col_names();
+    const bool has_cate =
+        std::find(columns.begin(), columns.end(), "cate") != columns.end();
+    const bool has_level =
+        std::find(columns.begin(), columns.end(), "level") != columns.end();
+
+    const bool has_prefix =
+        std::find(columns.begin(), columns.end(), "prefix") != columns.end();
+    const bool has_image =
+        std::find(columns.begin(), columns.end(), "image") != columns.end();
+    const bool has_x =
+        std::find(columns.begin(), columns.end(), "x") != columns.end();
+    const bool has_y =
+        std::find(columns.begin(), columns.end(), "y") != columns.end();
+    const bool has_w =
+        std::find(columns.begin(), columns.end(), "w") != columns.end();
+    const bool has_h =
+        std::find(columns.begin(), columns.end(), "h") != columns.end();
+
+    // Raise error if any of the required columns are missing
+    if (!has_prefix || !has_image || !has_x || !has_y || !has_w || !has_h) {
+        std::cerr << "Missing required columns in the TSV file: " << tsv_file
+                  << std::endl;
+        return;
+    }
+
     // Iterate over each row
     for (auto &row : reader) {
         const auto prefix = row["prefix"].get<std::string>();
         const auto image_name = row["image"].get<std::string>();
-        const auto category = row["cate"].get<std::string>();
-        const auto level = row["level"].get<std::string>();
+        const auto category = has_cate ? row["cate"].get<std::string>() : "";
+        const auto level = has_level ? row["level"].get<std::string>() : "";
 
         // NOTE: The bounding box coordinates can be DIRTY, check the raw data
         // first in case they are totally incorrect e.g. all negative values
@@ -63,12 +92,21 @@ void crop_bbox(const std::string &root_dir, const std::string &tsv_file,
 
             // Create the output image name
             std::string output_name =
-                "_" + category + "_" + level + "_x" + std::to_string(x) + "_y" +
-                std::to_string(y) + "_w" + std::to_string(w) + "_h" +
-                std::to_string(h) + "_" + prefix + "_" + image_name;
+                "_x" + std::to_string(x) + "_y" + std::to_string(y) + "_w" +
+                std::to_string(w) + "_h" + std::to_string(h) + "_" + prefix +
+                "_" + image_name;
+
+            // Append category and level if they exist
+            if (has_cate) {
+                output_name = "_" + category + output_name;
+            }
+            if (has_level) {
+                output_name = "_" + level + output_name;
+            }
 
             // Save the cropped image
-            std::string output_path = output_dir + "/" + output_name;
+            std::string output_path =
+                std::filesystem::path(output_dir) / output_name;
             imwrite(output_path, cropped_image);
         } catch (const cv::Exception &e) {
             std::cerr << "OpenCV exception: " << e.what() << std::endl;
