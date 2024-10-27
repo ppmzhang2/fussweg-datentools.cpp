@@ -1,7 +1,7 @@
-#include "via.hpp"
+#include "ibox.hpp"
 #include <gtest/gtest.h>
 
-using namespace fdt::via;
+using namespace fdt::ibox;
 
 // Test enum class Fault
 TEST(Fault, AndOrOperator) {
@@ -55,7 +55,7 @@ TEST(ImgBox, ParseFromCsv) {
     FaultStats stats;
 
     std::istringstream istream_csv(str_csv);
-    ImgBoxArr ibx_arr = parseCsv(istream_csv);
+    std::vector<ImgBox> ibx_arr = fromViaCsv(istream_csv);
     for (auto &ibx : ibx_arr) {
         for (auto &bx : ibx.boxes) {
             stats.AddFault(bx.fault);
@@ -327,7 +327,7 @@ TEST(ImgBox, ParseFromJson) {
     FaultStats stats;
 
     std::istringstream istream_json(str_json);
-    ImgBoxArr ibx_arr = parseJson(istream_json);
+    std::vector<ImgBox> ibx_arr = fromViaJson(istream_json);
     for (auto &ibx : ibx_arr) {
         for (auto &bx : ibx.boxes) {
             stats.AddFault(bx.fault);
