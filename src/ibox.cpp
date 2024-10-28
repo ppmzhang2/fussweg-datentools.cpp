@@ -73,7 +73,7 @@ std::string fault2str(ibox::Fault fault) {
         if (ind_level != 0) {
             if (!res.empty())
                 res += "_";
-            res += faulttype2str(ind_type) + "-" + faultlevel2str(ind_level);
+            res += faulttype2str(ind_type) + "_" + faultlevel2str(ind_level);
         }
     }
     return res;
@@ -227,9 +227,7 @@ void ibox::ImgBox::Draw(const std::string &src, const std::string &dst) const {
         // get all faults for categorizing
         max_fault(fault_img, bbx.fault);
 
-        cv::Rect box(bbx.x, bbx.y, bbx.w, bbx.h);
-        // Positioning the text above the box
-        cv::Point pt_txt_org(box.x, box.y);
+        const cv::Rect box(bbx.x, bbx.y, bbx.w, bbx.h);
 
         // Draw bounding box
         cv::rectangle(img, box, kLineColor, kThick);
@@ -250,9 +248,12 @@ void ibox::ImgBox::Draw(const std::string &src, const std::string &dst) const {
         while (std::getline(iss, _txt, '_')) {
             seq_txt.push_back(_txt);
         }
-        // 900 is the width of the longest text
-        cv::Rect rect_bg(pt_txt_org.x, pt_txt_org.y - size_txt.height, 900,
-                         (size_txt.height + baseline) * seq_txt.size());
+        const auto x_bg = bbx.x;
+        const auto y_bg = MAX2(1, bbx.y - size_txt.height);
+        const auto w_bg = MIN2(900, bbx.w); // TODO: magic 900
+        const auto h_bg =
+            MIN2((size_txt.height + baseline) * int(seq_txt.size()), bbx.h);
+        cv::Rect rect_bg(x_bg, y_bg, w_bg, h_bg);
         // Extract the region of interest (ROI) where the background rectangle
         // will be drawn
         cv::Mat roi = img(rect_bg);
@@ -269,8 +270,7 @@ void ibox::ImgBox::Draw(const std::string &src, const std::string &dst) const {
         for (size_t i = 0; i < seq_txt.size(); ++i) {
             cv::putText(
                 img, seq_txt[i],
-                cv::Point(pt_txt_org.x,
-                          pt_txt_org.y + i * (size_txt.height + baseline)),
+                cv::Point(bbx.x, bbx.y + i * (size_txt.height + baseline)),
                 kFontFace, kFontScale, kTxtColor, kThick);
         }
     }

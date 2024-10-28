@@ -61,7 +61,7 @@ static inline void set_fault(ibox::Fault &fault, FaultType type,
     fault |= static_cast<ibox::Fault>(ind_level << (2 * (ind_type - 1)));
 }
 
-static inline constexpr FaultLevel str2faultlevel(const std::string &str) {
+static inline FaultLevel str2faultlevel(const std::string &str) {
     try {
         return kMapLevel.at(str);
     } catch (const std::out_of_range &e) {
@@ -69,7 +69,7 @@ static inline constexpr FaultLevel str2faultlevel(const std::string &str) {
     }
 }
 
-static inline constexpr FaultType str2faulttype(const std::string &str) {
+static inline FaultType str2faulttype(const std::string &str) {
     try {
         return kMapType.at(str);
     } catch (const std::out_of_range &e) {

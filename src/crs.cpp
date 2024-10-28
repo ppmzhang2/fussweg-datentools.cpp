@@ -72,7 +72,7 @@ static inline constexpr void validate_longitude(const double longitude) {
 //     the Earth.
 //
 // @param sin_lat: sine of the latitude in radian
-static inline constexpr double radius_curvature(const double sin_lat) {
+static inline double radius_curvature(const double sin_lat) {
     return kAlpha / sqrt(1 - kEE1st * sin_lat * sin_lat);
 }
 
@@ -130,7 +130,7 @@ static inline constexpr double delta_long_adj(const double lon,
 // - A6 = (35 / 3072) * e^6
 //
 // @param lat: latitude in radians
-static inline constexpr double arc_meridian(const double lat) {
+static inline double arc_meridian(const double lat) {
     return kAlpha * (A0 * lat - A2 * sin(2 * lat) + A4 * sin(4 * lat) -
                      A6 * sin(6 * lat));
 }
