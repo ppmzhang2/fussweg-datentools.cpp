@@ -1,10 +1,11 @@
 #pragma once
 
+#include <csv.hpp>
 #include <iostream>
 #include <vector>
 
 namespace fdt {
-    namespace via {
+    namespace ibox {
 
         // Define the Fault enum class with bitmask values
         enum class Fault : uint16_t {
@@ -64,16 +65,14 @@ namespace fdt {
             std::string ToTsv(const std::string &) const;
         };
 
-        using BoxArr = std::vector<Box>;
-
         struct ImgBox {
             std::string image;
-            BoxArr boxes;
+            std::vector<Box> boxes;
 
             std::string ToTsv(const std::string &) const;
-        };
 
-        using ImgBoxArr = std::vector<ImgBox>;
+            void Draw(const std::string &, const std::string &) const;
+        };
 
         struct ImgFaultCount {
             std::string image;
@@ -179,23 +178,28 @@ namespace fdt {
             }
         };
 
-        ImgBoxArr parseCsv(std::istream &);
+#ifdef GTEST_ACCESS
+        std::vector<ImgBox> from_via_csv(std::istream &);
 
-        ImgBoxArr parseJson(std::istream &);
+        std::vector<ImgBox> from_via_json(std::istream &);
 
-        void exportTsv(const std::string &, const std::string &,
-                       std::ostream &);
+        std::vector<ImgBox> from_csv_reader(csv::CSVReader &);
+#endif
+        std::vector<ImgBox> fromVia(const std::string &);
 
-        void drawImgBox(const ImgBox &, const std::string &,
-                        const std::string &);
+        std::vector<ImgBox> fromTsv(const std::string &);
 
-        void drawImgBoxes(const std::string &, const std::string &,
-                          const std::string &, const std::string &);
+        void toTsv(const std::vector<ibox::ImgBox> &, const std::string &,
+                   std::ostream &);
 
-        void exportStats(const std::string &, const std::string &);
+        void drawBBox(const std::vector<ibox::ImgBox> &, const std::string &,
+                      const std::string &);
 
-        void printStats(const std::string &);
+        void exportStats(const std::vector<ibox::ImgBox> &,
+                         const std::string &);
 
-    } // namespace via
+        void printStats(const std::vector<ibox::ImgBox> &);
+
+    } // namespace ibox
 
 } // namespace fdt

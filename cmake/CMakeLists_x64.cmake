@@ -152,6 +152,10 @@ target_include_directories(${TEST_BIN_NAME} PRIVATE
     "${FusswegDatentools_BINARY_DIR}/include" # Ensures config.h can be found
 )
 
+target_compile_definitions(${TEST_BIN_NAME} PRIVATE
+    -DGTEST_ACCESS
+)
+
 # Link libraries
 target_link_libraries(${OUT_BIN_NAME} PRIVATE ${MAIN_ALL_LIBS})
 target_link_libraries(${TEST_BIN_NAME} PRIVATE ${TEST_ALL_LIBS})

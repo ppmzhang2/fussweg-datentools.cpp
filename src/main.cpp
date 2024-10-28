@@ -6,9 +6,9 @@
 #include "cv.hpp"
 #include "exif.hpp"
 #include "gis.hpp"
+#include "ibox.hpp"
 #include "img.hpp"
 #include "utils.hpp"
-#include "via.hpp"
 
 int parse_args(int argc, char *argv[]) {
     if (argc <= 1) {
@@ -23,9 +23,9 @@ int parse_args(int argc, char *argv[]) {
                   << "<directory_path> <output_file_path>" << std::endl;
         std::cout << "  " << argv[0] << " displacement "
                   << "<directory_path> <output_file_path>" << std::endl;
-        std::cout << "  " << argv[0] << " via-export "
+        std::cout << "  " << argv[0] << " via-to-tsv "
                   << "<label_dir> <group> <out_file_path>" << std::endl;
-        std::cout << "  " << argv[0] << " via-export-stats "
+        std::cout << "  " << argv[0] << " fault-stats-via "
                   << "<label_dir> <out_file_path>" << std::endl;
         std::cout << "  " << argv[0] << " via-print-stats "
                   << "<label_dir>" << std::endl;
@@ -34,8 +34,8 @@ int parse_args(int argc, char *argv[]) {
         std::cout << "  " << argv[0] << " crop-bbox "
                   << "<root_dir> <tsv_dir> <output_dir> <width> <height>"
                   << std::endl;
-        std::cout << "  " << argv[0] << " bbox-draw "
-                  << "<label_dir> <src_dir> <dst_dir> <ext>" << std::endl;
+        std::cout << "  " << argv[0] << " draw-bbox "
+                  << "<label_dir> <src_dir> <dst_dir> <format>" << std::endl;
         std::cout << "  " << argv[0] << " crs-to-nzgd2000 "
                   << "<latitude> <longitude>" << std::endl;
         std::cout << "  " << argv[0] << " crs-from-nzgd2000 "
@@ -57,21 +57,21 @@ int parse_args(int argc, char *argv[]) {
 
     std::string op = argv[1];
     if (op != "exif-export-json" && op != "exif-export-csv" &&
-        op != "displacement" && op != "via-export" && op != "via-print-stats" &&
-        op != "via-export-stats" && op != "annot-to-coco" &&
-        op != "crop-bbox" && op != "bbox-draw" && op != "pov-roi" &&
-        op != "pov-transform" && op != "crs-to-nzgd2000" &&
-        op != "crs-from-nzgd2000" && op != "geojson-to-tsv") {
+        op != "displacement" && op != "via-to-tsv" && op != "via-print-stats" &&
+        op != "fault-stats-via" && op != "annot-to-coco" && op != "crop-bbox" &&
+        op != "draw-bbox" && op != "pov-roi" && op != "pov-transform" &&
+        op != "crs-to-nzgd2000" && op != "crs-from-nzgd2000" &&
+        op != "geojson-to-tsv") {
         throw std::runtime_error("Unknown operation. ");
     }
     if ((op == "exif-export-json" && argc != 4) ||
         (op == "exif-export-csv" && argc != 4) ||
         (op == "displacement" && argc != 4) ||
-        (op == "via-export" && argc != 5) ||
-        (op == "via-export-stats" && argc != 4) ||
+        (op == "via-to-tsv" && argc != 5) ||
+        (op == "fault-stats-via" && argc != 4) ||
         (op == "via-print-stats" && argc != 3) ||
         (op == "annot-to-coco" && argc != 5) ||
-        (op == "crop-bbox" && argc != 7) || (op == "bbox-draw" && argc != 6) ||
+        (op == "crop-bbox" && argc != 7) || (op == "draw-bbox" && argc != 6) ||
         (op == "geojson-to-tsv" && argc != 4) ||
         (op == "crs-to-nzgd2000" && argc != 4) ||
         (op == "crs-from-nzgd2000" && argc != 4) ||
@@ -102,38 +102,43 @@ int parse_args(int argc, char *argv[]) {
         fdt::utils::writeFile(out_path, out.dump(4));
         return 0;
     }
-    if (op == "bbox-draw") {
+    if (op == "draw-bbox") {
         std::string dir_lab = argv[2];
         std::string dir_src = argv[3];
         std::string dir_dst = argv[4];
-        std::string ext = argv[5];
-        // TODO: make it more robust
-        if (ext == "json") {
-            ext = ".json";
+        std::string format = argv[5];
+        std::vector<fdt::ibox::ImgBox> ibx_arr;
+        if (format == "via") {
+            ibx_arr = fdt::ibox::fromVia(dir_lab);
+        } else if (format == "tsv") {
+            ibx_arr = fdt::ibox::fromTsv(dir_lab);
         } else {
-            ext = ".csv";
+            throw std::runtime_error("Invalid format.");
         }
-        fdt::via::drawImgBoxes(dir_lab, dir_src, dir_dst, ext);
+        fdt::ibox::drawBBox(ibx_arr, dir_src, dir_dst);
         return 0;
     }
-    if (op == "via-export") {
+    if (op == "via-to-tsv") {
         std::string dir_lab = argv[2];
         std::string group = argv[3];
         std::string tsv_file = argv[4];
+        std::vector<fdt::ibox::ImgBox> ibx_arr = fdt::ibox::fromVia(dir_lab);
         std::ofstream stream_of(tsv_file);
-        fdt::via::exportTsv(dir_lab, group, stream_of);
+        fdt::ibox::toTsv(ibx_arr, group, stream_of);
         stream_of.close();
         return 0;
     }
-    if (op == "via-export-stats") {
+    if (op == "fault-stats-via") {
         std::string dir_lab = argv[2];
         std::string csv_file = argv[3];
-        fdt::via::exportStats(dir_lab, csv_file);
+        std::vector<fdt::ibox::ImgBox> ibx_arr = fdt::ibox::fromVia(dir_lab);
+        fdt::ibox::exportStats(ibx_arr, csv_file);
         return 0;
     }
     if (op == "via-print-stats") {
         std::string dir_lab = argv[2];
-        fdt::via::printStats(dir_lab);
+        std::vector<fdt::ibox::ImgBox> ibx_arr = fdt::ibox::fromVia(dir_lab);
+        fdt::ibox::printStats(ibx_arr);
         return 0;
     }
     if (op == "crop-bbox") {

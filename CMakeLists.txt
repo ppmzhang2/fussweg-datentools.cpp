@@ -27,7 +27,8 @@ set(SOURCES
     "${FusswegDatentools_SOURCE_DIR}/src/main.cpp"
     "${FusswegDatentools_SOURCE_DIR}/src/annot.cpp"
     "${FusswegDatentools_SOURCE_DIR}/src/img.cpp"
-    "${FusswegDatentools_SOURCE_DIR}/src/via.cpp"
+    "${FusswegDatentools_SOURCE_DIR}/src/ibox.cpp"
+    "${FusswegDatentools_SOURCE_DIR}/src/ibox_via.cpp"
     "${FusswegDatentools_SOURCE_DIR}/src/crs.cpp"
     "${FusswegDatentools_SOURCE_DIR}/src/cv.cpp"
     "${FusswegDatentools_SOURCE_DIR}/src/exif.cpp"
@@ -36,7 +37,7 @@ set(SOURCES
 set(HEADERS
     "${FusswegDatentools_SOURCE_DIR}/include/annot.hpp"
     "${FusswegDatentools_SOURCE_DIR}/include/img.hpp"
-    "${FusswegDatentools_SOURCE_DIR}/include/via.hpp"
+    "${FusswegDatentools_SOURCE_DIR}/include/ibox.hpp"
     "${FusswegDatentools_SOURCE_DIR}/include/crs.hpp"
     "${FusswegDatentools_SOURCE_DIR}/include/cv.hpp"
     "${FusswegDatentools_SOURCE_DIR}/include/exif.hpp"
@@ -65,7 +66,8 @@ configure_file(
 # -----------------------------------------------------------------------------
 enable_testing()
 add_executable(${TEST_BIN_NAME}
-    "${FusswegDatentools_SOURCE_DIR}/src/via.cpp"
+    "${FusswegDatentools_SOURCE_DIR}/src/ibox.cpp"
+    "${FusswegDatentools_SOURCE_DIR}/src/ibox_via.cpp"
     "${FusswegDatentools_SOURCE_DIR}/src/crs.cpp"
     "${FusswegDatentools_SOURCE_DIR}/src/exif.cpp"
     "${FusswegDatentools_SOURCE_DIR}/src/gis.cpp"

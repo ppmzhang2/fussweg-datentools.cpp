@@ -1,7 +1,7 @@
-#include "via.hpp"
+#include "ibox.hpp"
 #include <gtest/gtest.h>
 
-using namespace fdt::via;
+using namespace fdt::ibox;
 
 // Test enum class Fault
 TEST(Fault, AndOrOperator) {
@@ -12,7 +12,7 @@ TEST(Fault, AndOrOperator) {
     EXPECT_EQ(static_cast<int>(fault), 0b0000100000111110);
 }
 
-TEST(ImgBox, ParseFromCsv) {
+TEST(ImgBox, FromViaCsv) {
     static const std::string str_csv =
         ("filename,file_size,file_attributes,region_count,region_id,region_"
          "shape_attributes,region_attributes\n"
@@ -55,7 +55,7 @@ TEST(ImgBox, ParseFromCsv) {
     FaultStats stats;
 
     std::istringstream istream_csv(str_csv);
-    ImgBoxArr ibx_arr = parseCsv(istream_csv);
+    std::vector<ImgBox> ibx_arr = from_via_csv(istream_csv);
     for (auto &ibx : ibx_arr) {
         for (auto &bx : ibx.boxes) {
             stats.AddFault(bx.fault);
@@ -84,7 +84,7 @@ TEST(ImgBox, ParseFromCsv) {
     EXPECT_EQ(stats.pothole_verypoor, 0);
 }
 
-TEST(ImgBox, ParseFromJson) {
+TEST(ImgBox, FromViaJson) {
     static const std::string str_json =
         ("{\n"
          "  \"_via_settings\": {\n"
@@ -327,7 +327,7 @@ TEST(ImgBox, ParseFromJson) {
     FaultStats stats;
 
     std::istringstream istream_json(str_json);
-    ImgBoxArr ibx_arr = parseJson(istream_json);
+    std::vector<ImgBox> ibx_arr = from_via_json(istream_json);
     for (auto &ibx : ibx_arr) {
         for (auto &bx : ibx.boxes) {
             stats.AddFault(bx.fault);
@@ -351,6 +351,80 @@ TEST(ImgBox, ParseFromJson) {
     EXPECT_EQ(stats.vegetation_verypoor, 1);
     EXPECT_EQ(stats.uneven_fair, 0);
     EXPECT_EQ(stats.uneven_poor, 2);
+    EXPECT_EQ(stats.uneven_verypoor, 0);
+    EXPECT_EQ(stats.pothole_fair, 1);
+    EXPECT_EQ(stats.pothole_poor, 0);
+    EXPECT_EQ(stats.pothole_verypoor, 1);
+}
+
+TEST(ImgBox, FromTsv) {
+    static const std::string str_tsv =
+        ("prefix\timage\tx\ty\tw\th\tcategory\tscore_cate_top1\tclass_"
+         "cate_top2\tscore_cate_top2\tlevel\tscore_lvl_top1\tclass_"
+         "lvl_top2\tscore_lvl_top2\n"
+         "20231115\tG0018488."
+         "JPG\t3203\t563\t1166\t3925\tdepression\t92\tvegetation\t3\tpoor\t80\t"
+         "verypoor"
+         "\t19\n"
+         "20231004\tG0033549."
+         "JPG\t379\t46\t2090\t4148\tpothole\t68\tdepression\t22\tfair\t92\tp"
+         "oor\t8\n"
+         "20230920\tG0047026."
+         "JPG\t1832\t1071\t1528\t194\tcrack\t71\tuneven\t22\tfair\t93\tpoor\t7"
+         "\n"
+         "20231010\tG0025306."
+         "JPG\t3800\t476\t207\t165\tbump\t74\tpothole\t12\tfair\t94\tpoor\t6\n"
+         "20231115\tG0017910."
+         "JPG\t1149\t1697\t3153\t1002\tpothole\t89\tcrack\t7\tverypoor\t77\tpoo"
+         "r"
+         "\t21\n"
+         "20230920\tG0053839."
+         "JPG\t129\t1158\t2839\t2501\tcrack\t82\tvegetation\t7\tfair\t92\tpoor"
+         "\t8\n"
+         "20231010\tG0040312."
+         "JPG\t1320\t1569\t1187\t2263\tcrack\t50\tuneven\t21\tpoor\t89\tfair\t1"
+         "1\n"
+         "20231010\tG0021377."
+         "JPG\t2522\t523\t929\t4055\tvegetation\t57\tbump\t16\tfair\t93\tpoor\t"
+         "7\n"
+         "20231115\tG0018488."
+         "JPG\t21\t3128\t4615\t473\tcrack\t93\tuneven\t3\tverypoor\t90\tpoor\t1"
+         "0\n"
+         "20231115\tG0018488."
+         "JPG\t2255\t196\t2117\t4411\tvegetation\t79\tcrack\t14\tfair\t89\tpoor"
+         "\t11\n");
+
+    FaultStats stats;
+
+    csv::CSVFormat format;
+    format.delimiter('\t').header_row(0);
+    std::istringstream istream_tsv(str_tsv);
+    csv::CSVReader reader(istream_tsv, format);
+
+    std::vector<ImgBox> ibx_arr = from_csv_reader(reader);
+    for (auto &ibx : ibx_arr) {
+        for (auto &bx : ibx.boxes) {
+            stats.AddFault(bx.fault);
+        }
+    }
+
+    EXPECT_EQ(stats.bump_fair, 1);
+    EXPECT_EQ(stats.bump_poor, 0);
+    EXPECT_EQ(stats.bump_verypoor, 0);
+    EXPECT_EQ(stats.crack_fair, 2);
+    EXPECT_EQ(stats.crack_poor, 1);
+    EXPECT_EQ(stats.crack_verypoor, 1);
+    EXPECT_EQ(stats.depression_fair, 0);
+    EXPECT_EQ(stats.depression_poor, 1);
+    EXPECT_EQ(stats.depression_verypoor, 0);
+    EXPECT_EQ(stats.displacement_fair, 0);
+    EXPECT_EQ(stats.displacement_poor, 0);
+    EXPECT_EQ(stats.displacement_verypoor, 0);
+    EXPECT_EQ(stats.vegetation_fair, 2);
+    EXPECT_EQ(stats.vegetation_poor, 0);
+    EXPECT_EQ(stats.vegetation_verypoor, 0);
+    EXPECT_EQ(stats.uneven_fair, 0);
+    EXPECT_EQ(stats.uneven_poor, 0);
     EXPECT_EQ(stats.uneven_verypoor, 0);
     EXPECT_EQ(stats.pothole_fair, 1);
     EXPECT_EQ(stats.pothole_poor, 0);
