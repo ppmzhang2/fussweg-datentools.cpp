@@ -18,9 +18,9 @@ namespace {
         CRACK,
         DEPRESSION,
         DISPLACEMENT,
-        VEGETATION,
-        UNEVEN,
         POTHOLE,
+        UNEVEN,
+        VEGETATION,
     };
 
     // Define the FaultLevel enum class
@@ -36,9 +36,9 @@ namespace {
         {"crack", FaultType::CRACK},
         {"depression", FaultType::DEPRESSION},
         {"displacement", FaultType::DISPLACEMENT},
-        {"vegetation", FaultType::VEGETATION},
-        {"uneven", FaultType::UNEVEN},
         {"pothole", FaultType::POTHOLE},
+        {"uneven", FaultType::UNEVEN},
+        {"vegetation", FaultType::VEGETATION},
     };
 
     static const std::unordered_map<std::string, FaultLevel> kMapLevel = {

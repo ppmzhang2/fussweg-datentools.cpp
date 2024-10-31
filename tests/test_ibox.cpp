@@ -4,12 +4,24 @@
 using namespace fdt::ibox;
 
 // Test enum class Fault
-TEST(Fault, AndOrOperator) {
+TEST(Fault, AndOrOp) {
     Fault fault =
         Fault::CRACK_FAIR | Fault::BUMP_POOR | Fault::DEPRESSION_VPOOR;
     EXPECT_EQ(static_cast<int>(fault), 0b0000000000110110);
-    fault |= (Fault::CRACK_VPOOR | Fault::UNEVEN_POOR);
-    EXPECT_EQ(static_cast<int>(fault), 0b0000100000111110);
+    fault |= (Fault::CRACK_VPOOR | Fault::VEGETATION_POOR);
+    EXPECT_EQ(static_cast<int>(fault), 0b0010000000111110);
+}
+
+TEST(Box, MaxSeverityOp) {
+    Box bx;
+    bx.fault = Fault::NONE;
+    EXPECT_EQ(bx.MaxSeverity(), static_cast<uint8_t>(0));
+    bx.fault |= Fault::CRACK_FAIR;
+    EXPECT_EQ(bx.MaxSeverity(), static_cast<uint8_t>(1));
+    bx.fault |= Fault::BUMP_POOR;
+    EXPECT_EQ(bx.MaxSeverity(), static_cast<uint8_t>(2));
+    bx.fault |= Fault::DEPRESSION_VPOOR;
+    EXPECT_EQ(bx.MaxSeverity(), static_cast<uint8_t>(3));
 }
 
 TEST(ImgBox, FromViaCsv) {
@@ -52,36 +64,46 @@ TEST(ImgBox, FromViaCsv) {
          "\",\"{\"\"fault\"\":{\"\"crack\"\":true,\"\"vegetation\"\":true},"
          "\"\"condition\"\":{\"\"fair\"\":true}}\"\n");
 
-    FaultStats stats;
-
     std::istringstream istream_csv(str_csv);
     std::vector<ImgBox> ibx_arr = from_via_csv(istream_csv);
+
+    std::array<uint8_t, 21> arr = {0};
+    uint8_t idx_lvl;
+
     for (auto &ibx : ibx_arr) {
         for (auto &bx : ibx.boxes) {
-            stats.AddFault(bx.fault);
+            for (uint8_t idx_type = 0; idx_type < 7; ++idx_type) {
+                idx_lvl =
+                    (static_cast<uint16_t>(bx.fault) >> (idx_type * 2)) & 0b11;
+                if (idx_lvl != 0) {
+                    int idx = idx_type * 3 + (idx_lvl - 1);
+                    arr[idx] += 1;
+                }
+            }
         }
     }
-    EXPECT_EQ(stats.bump_fair, 1);
-    EXPECT_EQ(stats.bump_poor, 0);
-    EXPECT_EQ(stats.bump_verypoor, 0);
-    EXPECT_EQ(stats.crack_fair, 2);
-    EXPECT_EQ(stats.crack_poor, 0);
-    EXPECT_EQ(stats.crack_verypoor, 0);
-    EXPECT_EQ(stats.depression_fair, 0);
-    EXPECT_EQ(stats.depression_poor, 0);
-    EXPECT_EQ(stats.depression_verypoor, 1);
-    EXPECT_EQ(stats.displacement_fair, 1);
-    EXPECT_EQ(stats.displacement_poor, 0);
-    EXPECT_EQ(stats.displacement_verypoor, 0);
-    EXPECT_EQ(stats.vegetation_fair, 4);
-    EXPECT_EQ(stats.vegetation_poor, 1);
-    EXPECT_EQ(stats.vegetation_verypoor, 0);
-    EXPECT_EQ(stats.uneven_fair, 0);
-    EXPECT_EQ(stats.uneven_poor, 1);
-    EXPECT_EQ(stats.uneven_verypoor, 0);
-    EXPECT_EQ(stats.pothole_fair, 1);
-    EXPECT_EQ(stats.pothole_poor, 0);
-    EXPECT_EQ(stats.pothole_verypoor, 0);
+
+    EXPECT_EQ(arr[0], 1);
+    EXPECT_EQ(arr[1], 0);
+    EXPECT_EQ(arr[2], 0);
+    EXPECT_EQ(arr[3], 2);
+    EXPECT_EQ(arr[4], 0);
+    EXPECT_EQ(arr[5], 0);
+    EXPECT_EQ(arr[6], 0);
+    EXPECT_EQ(arr[7], 0);
+    EXPECT_EQ(arr[8], 1);
+    EXPECT_EQ(arr[9], 1);
+    EXPECT_EQ(arr[10], 0);
+    EXPECT_EQ(arr[11], 0);
+    EXPECT_EQ(arr[12], 1);
+    EXPECT_EQ(arr[13], 0);
+    EXPECT_EQ(arr[14], 0);
+    EXPECT_EQ(arr[15], 0);
+    EXPECT_EQ(arr[16], 1);
+    EXPECT_EQ(arr[17], 0);
+    EXPECT_EQ(arr[18], 4);
+    EXPECT_EQ(arr[19], 1);
+    EXPECT_EQ(arr[20], 0);
 }
 
 TEST(ImgBox, FromViaJson) {
@@ -324,37 +346,46 @@ TEST(ImgBox, FromViaJson) {
          "  ]\n"
          "}\n");
 
-    FaultStats stats;
-
     std::istringstream istream_json(str_json);
     std::vector<ImgBox> ibx_arr = from_via_json(istream_json);
+
+    std::array<uint8_t, 21> arr = {0};
+    uint8_t idx_lvl;
+
     for (auto &ibx : ibx_arr) {
         for (auto &bx : ibx.boxes) {
-            stats.AddFault(bx.fault);
+            for (uint8_t idx_type = 0; idx_type < 7; ++idx_type) {
+                idx_lvl =
+                    (static_cast<uint16_t>(bx.fault) >> (idx_type * 2)) & 0b11;
+                if (idx_lvl != 0) {
+                    int idx = idx_type * 3 + (idx_lvl - 1);
+                    arr[idx] += 1;
+                }
+            }
         }
     }
 
-    EXPECT_EQ(stats.bump_fair, 1);
-    EXPECT_EQ(stats.bump_poor, 1);
-    EXPECT_EQ(stats.bump_verypoor, 1);
-    EXPECT_EQ(stats.crack_fair, 0);
-    EXPECT_EQ(stats.crack_poor, 1);
-    EXPECT_EQ(stats.crack_verypoor, 1);
-    EXPECT_EQ(stats.depression_fair, 1);
-    EXPECT_EQ(stats.depression_poor, 1);
-    EXPECT_EQ(stats.depression_verypoor, 0);
-    EXPECT_EQ(stats.displacement_fair, 0);
-    EXPECT_EQ(stats.displacement_poor, 2);
-    EXPECT_EQ(stats.displacement_verypoor, 1);
-    EXPECT_EQ(stats.vegetation_fair, 0);
-    EXPECT_EQ(stats.vegetation_poor, 1);
-    EXPECT_EQ(stats.vegetation_verypoor, 1);
-    EXPECT_EQ(stats.uneven_fair, 0);
-    EXPECT_EQ(stats.uneven_poor, 2);
-    EXPECT_EQ(stats.uneven_verypoor, 0);
-    EXPECT_EQ(stats.pothole_fair, 1);
-    EXPECT_EQ(stats.pothole_poor, 0);
-    EXPECT_EQ(stats.pothole_verypoor, 1);
+    EXPECT_EQ(arr[0], 1);
+    EXPECT_EQ(arr[1], 1);
+    EXPECT_EQ(arr[2], 1);
+    EXPECT_EQ(arr[3], 0);
+    EXPECT_EQ(arr[4], 1);
+    EXPECT_EQ(arr[5], 1);
+    EXPECT_EQ(arr[6], 1);
+    EXPECT_EQ(arr[7], 1);
+    EXPECT_EQ(arr[8], 0);
+    EXPECT_EQ(arr[9], 0);
+    EXPECT_EQ(arr[10], 2);
+    EXPECT_EQ(arr[11], 1);
+    EXPECT_EQ(arr[12], 1);
+    EXPECT_EQ(arr[13], 0);
+    EXPECT_EQ(arr[14], 1);
+    EXPECT_EQ(arr[15], 0);
+    EXPECT_EQ(arr[16], 2);
+    EXPECT_EQ(arr[17], 0);
+    EXPECT_EQ(arr[18], 0);
+    EXPECT_EQ(arr[19], 1);
+    EXPECT_EQ(arr[20], 1);
 }
 
 TEST(ImgBox, FromTsv) {
@@ -394,39 +425,48 @@ TEST(ImgBox, FromTsv) {
          "JPG\t2255\t196\t2117\t4411\tvegetation\t79\tcrack\t14\tfair\t89\tpoor"
          "\t11\n");
 
-    FaultStats stats;
-
     csv::CSVFormat format;
     format.delimiter('\t').header_row(0);
     std::istringstream istream_tsv(str_tsv);
     csv::CSVReader reader(istream_tsv, format);
 
     std::vector<ImgBox> ibx_arr = from_csv_reader(reader);
+
+    std::array<uint8_t, 21> arr = {0};
+    uint8_t idx_lvl;
+
     for (auto &ibx : ibx_arr) {
         for (auto &bx : ibx.boxes) {
-            stats.AddFault(bx.fault);
+            for (uint8_t idx_type = 0; idx_type < 7; ++idx_type) {
+                idx_lvl =
+                    (static_cast<uint16_t>(bx.fault) >> (idx_type * 2)) & 0b11;
+                if (idx_lvl != 0) {
+                    int idx = idx_type * 3 + (idx_lvl - 1);
+                    arr[idx] += 1;
+                }
+            }
         }
     }
 
-    EXPECT_EQ(stats.bump_fair, 1);
-    EXPECT_EQ(stats.bump_poor, 0);
-    EXPECT_EQ(stats.bump_verypoor, 0);
-    EXPECT_EQ(stats.crack_fair, 2);
-    EXPECT_EQ(stats.crack_poor, 1);
-    EXPECT_EQ(stats.crack_verypoor, 1);
-    EXPECT_EQ(stats.depression_fair, 0);
-    EXPECT_EQ(stats.depression_poor, 1);
-    EXPECT_EQ(stats.depression_verypoor, 0);
-    EXPECT_EQ(stats.displacement_fair, 0);
-    EXPECT_EQ(stats.displacement_poor, 0);
-    EXPECT_EQ(stats.displacement_verypoor, 0);
-    EXPECT_EQ(stats.vegetation_fair, 2);
-    EXPECT_EQ(stats.vegetation_poor, 0);
-    EXPECT_EQ(stats.vegetation_verypoor, 0);
-    EXPECT_EQ(stats.uneven_fair, 0);
-    EXPECT_EQ(stats.uneven_poor, 0);
-    EXPECT_EQ(stats.uneven_verypoor, 0);
-    EXPECT_EQ(stats.pothole_fair, 1);
-    EXPECT_EQ(stats.pothole_poor, 0);
-    EXPECT_EQ(stats.pothole_verypoor, 1);
+    EXPECT_EQ(arr[0], 1);
+    EXPECT_EQ(arr[1], 0);
+    EXPECT_EQ(arr[2], 0);
+    EXPECT_EQ(arr[3], 2);
+    EXPECT_EQ(arr[4], 1);
+    EXPECT_EQ(arr[5], 1);
+    EXPECT_EQ(arr[6], 0);
+    EXPECT_EQ(arr[7], 1);
+    EXPECT_EQ(arr[8], 0);
+    EXPECT_EQ(arr[9], 0);
+    EXPECT_EQ(arr[10], 0);
+    EXPECT_EQ(arr[11], 0);
+    EXPECT_EQ(arr[12], 1);
+    EXPECT_EQ(arr[13], 0);
+    EXPECT_EQ(arr[14], 1);
+    EXPECT_EQ(arr[15], 0);
+    EXPECT_EQ(arr[16], 0);
+    EXPECT_EQ(arr[17], 0);
+    EXPECT_EQ(arr[18], 2);
+    EXPECT_EQ(arr[19], 0);
+    EXPECT_EQ(arr[20], 0);
 }

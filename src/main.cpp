@@ -25,10 +25,6 @@ int parse_args(int argc, char *argv[]) {
                   << "<directory_path> <output_file_path>" << std::endl;
         std::cout << "  " << argv[0] << " via-to-tsv "
                   << "<label_dir> <group> <out_file_path>" << std::endl;
-        std::cout << "  " << argv[0] << " fault-stats-via "
-                  << "<label_dir> <out_file_path>" << std::endl;
-        std::cout << "  " << argv[0] << " via-print-stats "
-                  << "<label_dir>" << std::endl;
         std::cout << "  " << argv[0] << " annot-to-coco "
                   << "<annot_dir> <exif_dir> <output_file>" << std::endl;
         std::cout << "  " << argv[0] << " crop-bbox "
@@ -57,19 +53,16 @@ int parse_args(int argc, char *argv[]) {
 
     std::string op = argv[1];
     if (op != "exif-export-json" && op != "exif-export-csv" &&
-        op != "displacement" && op != "via-to-tsv" && op != "via-print-stats" &&
-        op != "fault-stats-via" && op != "annot-to-coco" && op != "crop-bbox" &&
-        op != "draw-bbox" && op != "pov-roi" && op != "pov-transform" &&
-        op != "crs-to-nzgd2000" && op != "crs-from-nzgd2000" &&
-        op != "geojson-to-tsv") {
+        op != "displacement" && op != "via-to-tsv" && op != "annot-to-coco" &&
+        op != "crop-bbox" && op != "draw-bbox" && op != "pov-roi" &&
+        op != "pov-transform" && op != "crs-to-nzgd2000" &&
+        op != "crs-from-nzgd2000" && op != "geojson-to-tsv") {
         throw std::runtime_error("Unknown operation. ");
     }
     if ((op == "exif-export-json" && argc != 4) ||
         (op == "exif-export-csv" && argc != 4) ||
         (op == "displacement" && argc != 4) ||
         (op == "via-to-tsv" && argc != 5) ||
-        (op == "fault-stats-via" && argc != 4) ||
-        (op == "via-print-stats" && argc != 3) ||
         (op == "annot-to-coco" && argc != 5) ||
         (op == "crop-bbox" && argc != 7) || (op == "draw-bbox" && argc != 6) ||
         (op == "geojson-to-tsv" && argc != 4) ||
@@ -126,19 +119,6 @@ int parse_args(int argc, char *argv[]) {
         std::ofstream stream_of(tsv_file);
         fdt::ibox::toTsv(ibx_arr, group, stream_of);
         stream_of.close();
-        return 0;
-    }
-    if (op == "fault-stats-via") {
-        std::string dir_lab = argv[2];
-        std::string csv_file = argv[3];
-        std::vector<fdt::ibox::ImgBox> ibx_arr = fdt::ibox::fromVia(dir_lab);
-        fdt::ibox::exportStats(ibx_arr, csv_file);
-        return 0;
-    }
-    if (op == "via-print-stats") {
-        std::string dir_lab = argv[2];
-        std::vector<fdt::ibox::ImgBox> ibx_arr = fdt::ibox::fromVia(dir_lab);
-        fdt::ibox::printStats(ibx_arr);
         return 0;
     }
     if (op == "crop-bbox") {
