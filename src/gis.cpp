@@ -1,7 +1,6 @@
 #include <nlohmann/json.hpp>
 
 #include "gis.hpp"
-#include <fstream>
 
 // Enclose a string with parentheses
 static inline const std::string enclose(const std::string &s,
@@ -97,9 +96,11 @@ void fdt::gis::Geojson2Tsv(std::istream &geojson, std::ostream &out) {
     if (!js.contains("features"))
         throw std::runtime_error("Invalid GeoJSON format: missing 'features'");
 
-    std::string wkt, id, road, side;
+    std::string wkt, uuid, id, road, side, material;
     double start, end, length, width, area, age;
-    out << "id\troad\tside\tstart\tclose\tlength\twidth\tarea\tage\twkt"
+    out << "entity_id\tasset_"
+           "id\troad\tside\tstart\tclose\tlength\twidth\tarea\tage\tmaterial\tw"
+           "kt"
         << std::endl;
 
     for (const auto &j : js["features"]) {
@@ -113,7 +114,8 @@ void fdt::gis::Geojson2Tsv(std::istream &geojson, std::ostream &out) {
             throw std::runtime_error("Invalid GeoJSON feature format");
         }
         wkt = fdt::gis::json2wkt(j);
-        id = j["properties"]["id"];
+        id = j["identifier"]["AssetId"];
+        uuid = j["identifier"]["EntityId"];
         road = get_str(j["properties"], "road_id");
         side = get_str(j["properties"], "side");
         start = get_num(j["properties"], "start_m");
@@ -122,8 +124,10 @@ void fdt::gis::Geojson2Tsv(std::istream &geojson, std::ostream &out) {
         width = get_num(j["properties"], "width_m");
         area = get_num(j["properties"], "area");
         age = get_num(j["properties"], "age");
-        out << id << "\t" << road << "\t" << side << "\t" << start << "\t"
-            << end << "\t" << length << "\t" << width << "\t" << area << "\t"
-            << age << "\t" << wkt << std::endl;
+        material = get_str(j["properties"], "footpath_surf_mat");
+        out << uuid << "\t" << id << "\t" << road << "\t" << side << "\t"
+            << start << "\t" << end << "\t" << length << "\t" << width << "\t"
+            << area << "\t" << age << "\t" << material << "\t" << wkt
+            << std::endl;
     }
 }
